@@ -74,13 +74,13 @@ enum Modulation {
 
 class Radio:{
   public
-    : Radio(int8_t sck = SCK, int8_t miso = MISO, int8_t mosi = MOSI, int8_t ss = SS, SPIClass spi = SPI):sck(sck), miso(miso), mosi(mosi), ss(ss), spi(spi) {};
+    : Radio(int8_t sck = SCK, int8_t miso = MISO, int8_t mosi = MOSI, int8_t ss = SS, SPIClass spi = SPI, Modulation mod = MOD_2FSK, double freq = 433.0, double drate = 4.0):sck(sck), miso(miso), mosi(mosi), ss(ss), spi(spi), mod(mod), freq(freq), drate(drate) {};
 
   uint8_t partnum, version, rssi, lqi;
 
-  bool begin(Modulation mod, double freq, double drate);
-  bool write(uint8_t *buffer, uint8_t size);
+  bool begin();
   bool read(uint8_t *buffer, uint8_t size);
+  bool write(uint8_t *buffer, uint8_t size);
 
   private: 
     uint8_t sck, miso, mosi, ss;
@@ -129,7 +129,7 @@ class Radio:{
     uint8_t readRegBurst(uint8_t addr, uint8_t *buff, uint8_t size);
 
     void writeReg(uint8_t addr, uint8_t buff);
-    void writeStatusReg(uint8_t addr, uint8_t buff);
+    void writeStatusReg(uint8_t addr);
     void writeRegField(uint8_t addr, uint8_t data, uint8_t hi, uint8_t lo);
     void writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t size);
 };

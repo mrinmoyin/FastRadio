@@ -1,6 +1,6 @@
 #include "CC1101_RAW.h"
 
-bool Radio::begin(Modulation mod, double freq, double drate, int8_t power) {
+bool Radio::begin() {
   hardReset();
 
   partnum = readStatusReg(CC1101_REG_PARTNUM);
@@ -10,19 +10,12 @@ bool Radio::begin(Modulation mod, double freq, double drate, int8_t power) {
     return false;
   }
 
-  if (!((freq >= 300.0 && freq <= 348.0) ||
+  if (
+      !((freq >= 300.0 && freq <= 348.0) ||
         (freq >= 387.0 && freq <= 464.0) ||
-        (freq >= 779.0 && freq <= 928.0))) {
-    return false;
-  }
-  if(drate < drateRange[mod][0] || drate > drateRange[mod][1]) {
-    return false;
-  }
-
-  mod = mod;
-  freq = freq;
-  drate = drate;
-  power = power;
+        (freq >= 779.0 && freq <= 928.0)) ||
+      (drate < drateRange[mod][0] || drate > drateRange[mod][1])
+      ) return false;
 
   setRegs();
   setMod(mod);
@@ -57,8 +50,12 @@ void Radio::hardReset() {
   spi.transfer(CC1101_CMD_RES);
   stop();
 }
-void Radio::flushRxBuffer(){};
-void Radio::flushTxBuffer(){};
+void Radio::flushRxBuffer(){
+  writeStatusReg(CC1101_CMD_FRX);
+};
+void Radio::flushTxBuffer(){
+  writeStatusReg(CC1101_CMD_FTX);
+};
 
 void Radio::setRegs(){
   /* Automatically calibrate when going from IDLE to RX or TX. */
@@ -130,7 +127,7 @@ void Radio::setPower(int8_t drate){
   }
 
   if(mod == MOD_ASK_OOK) {
-    writeRegBurst(CC1101_REG_PATABLE, {0x00, powerRange[freqIdx][powerIdx]}, 2);
+    writeRegBurst(CC1101_REG_PATABLE, {CC1101_WRITE, powerRange[freqIdx][powerIdx]}, 2);
     writeRegField(CC1101_REG_FREND0, 1, 2, 0);
   } else {
     writeReg(CC1101_REG_PATABLE, powerRange[freqIdx][powerIdx]);
@@ -143,25 +140,25 @@ uint8_t Radio::readReg(uint8_t addr){
 
   start();
   spi.transfer(header);
-  uint8_t data = spi.transfer(0x00);
+  uint8_t data = spi.transfer(CC1101_WRITE);
   stop();
 
   return data;
 };
 uint8_t Radio::readStatusReg(uint8_t addr){
-  // uint8_t header = CC1101_READ | CC1101_BURST | (addr & 0b111111);
-  uint8_t header = CC1101_READ | (addr & 0b111111);
-  header |= CC1101_BURST;
+  uint8_t header = CC1101_READ | CC1101_BURST | (addr & 0b111111);
+  // uint8_t header = CC1101_READ | (addr & 0b111111);
+  // header |= CC1101_BURST;
 
   start();
   spi.transfer(header);
-  uint8_t data = spi.transfer(0x00);
+  uint8_t data = spi.transfer(CC1101_WRITE);
   stop();
 
   return data;
 };
 uint8_t Radio::readRegField(uint8_t addr, uint8_t hi, uint8_t lo){
-  return readReg((addr) >> lo) & ((1 << (hi - lo + 1)) -1);
+  return readStatusReg((addr) >> lo) & ((1 << (hi - lo + 1)) -1);
 };
 uint8_t Radio::readRegBurst(uint8_t addr, uint8_t *buff, uint8_t size){
   uint8_t header = CC1101_READ | CC1101_BURST | (addr & 0b111111);
@@ -169,7 +166,7 @@ uint8_t Radio::readRegBurst(uint8_t addr, uint8_t *buff, uint8_t size){
   start();
   spi.transfer(header);
   for (uint8_t i = 0; i < size; i++) {
-    buff[i] = spi.transfer(0x00);
+    buff[i] = spi.transfer(CC1101_WRITE);
   }
   stop();
 };
@@ -182,7 +179,7 @@ void Radio::writeReg(uint8_t addr, uint8_t buff){
     spi.transfer(buff);
   stop();
 };
-void Radio::writeStatusReg(uint8_t addr, uint8_t buff){
+void Radio::writeStatusReg(uint8_t addr){
   uint8_t header = CC1101_WRITE | (addr & 0b111111);
 
   start();
@@ -191,7 +188,7 @@ void Radio::writeStatusReg(uint8_t addr, uint8_t buff){
 };
 void Radio::writeRegField(uint8_t addr, uint8_t data, uint8_t hi, uint8_t lo){
   uint8_t mask = ((1 << (hi - lo +1)) -1) << lo;
-  writeReg(addr, (readReg & ~mask) | ((buff <<= lo) & mask));
+  writeStatusReg(addr, (readReg & ~mask) | ((buff <<= lo) & mask));
 };
 void Radio::writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t size){
   uint8_t header = CC1101_WRITE | CC1101_BURST | (addr & 0b111111);
