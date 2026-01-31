@@ -92,18 +92,36 @@ enum Modulation {
 
 class Radio {
   public
-    : Radio(int8_t sck = SCK, int8_t miso = MISO, int8_t mosi = MOSI, int8_t ss = SS, SPIClass spi = SPI, Modulation mod = MOD_2FSK, double freq = 433.0, double drate = 4.0):sck(sck), miso(miso), mosi(mosi), ss(ss), spi(spi), mod(mod), freq(freq), drate(drate) {};
+    : Radio(
+        Modulation mod = MOD_2FSK,
+        double freq = 433.0,
+        double drate = 4.0,
+        int8_t sck = SCK,
+        int8_t miso = MISO,
+        int8_t mosi = MOSI,
+        int8_t ss = SS,
+        SPIClass spi = HSPI
+        ):
+      mod(mod),
+      freq(freq),
+      drate(drate),
+      sck(sck),
+      miso(miso),
+      mosi(mosi),
+      ss(ss),
+      spi(spi),
+      spiSettings(CC1101_SPI_MAX_FREQ, CC1101_SPI_DATA_ORDER, CC1101_SPI_DATA_MODE) {};
 
   uint8_t partnum, version, rssi, lqi;
 
   bool begin();
-  bool read(uint8_t *buffer, uint8_t size);
-  bool write(uint8_t *buffer, uint8_t size);
+  bool read(uint8_t *buff, uint8_t size);
+  bool write(uint8_t *buff, uint8_t size);
 
   private: 
     uint8_t sck, miso, mosi, ss;
     SPIClass spi;
-    SPISettings spiSettings = SPISettings(CC1101_SPI_MAX_FREQ, CC1101_SPI_DATA_ORDER, CC1101_SPI_DATA_MODE);
+    SPISettings spiSettings;
 
     Modulation mod;
     double freq, drate;

@@ -5,6 +5,10 @@ bool Radio::begin() {
 
   partnum = readStatusReg(CC1101_REG_PARTNUM);
   version = readStatusReg(CC1101_REG_VERSION);
+  Serial.print(F("PartNum: "));
+  Serial.println(partnum);
+  Serial.print(F("Version: "));
+  Serial.println(version);
 
   if(partnum != CC1101_PARTNUM || version != CC1101_VERSION || version != CC1101_VERSION_LEGACY) {
     return false;
@@ -26,15 +30,15 @@ bool Radio::begin() {
     return true;
 }
 
-bool Radio::write(uint8_t *buffer, uint8_t size){};
-bool Radio::read(uint8_t *buffer, uint8_t size){};
+bool Radio::read(uint8_t *buff, uint8_t size){};
+bool Radio::write(uint8_t *buff, uint8_t size){};
 
 void Radio::start() {
   spi.beginTransaction(spiSettings);
   digitalWrite(ss, LOW);
 
   #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
-  return;
+    return;
   #endif
 
   while (digitalRead(miso))
