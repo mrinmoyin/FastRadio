@@ -10,6 +10,20 @@ bool Radio::begin(Modulation mod, double freq, double drate, int8_t power) {
     return false;
   }
 
+  if (!((freq >= 300.0 && freq <= 348.0) ||
+        (freq >= 387.0 && freq <= 464.0) ||
+        (freq >= 779.0 && freq <= 928.0))) {
+    return false;
+  }
+  if(drate < drateRange[mod][0] || drate > drateRange[mod][1]) {
+    return false;
+  }
+
+  mod = mod;
+  freq = freq;
+  drate = drate;
+  power = power;
+
   setRegs();
   setMod(mod);
   setFreq(freq);
@@ -46,11 +60,83 @@ void Radio::hardReset() {
 void Radio::flushRxBuffer(){};
 void Radio::flushTxBuffer(){};
 
-void Radio::setRegs(){};
-void Radio::setMod(Modulation mod){};
-void Radio::setFreq(double freq){};
-void Radio::setDrate(double drate){};
-void Radio::setPower(int8_t drate){};
+void Radio::setRegs(){
+  /* Automatically calibrate when going from IDLE to RX or TX. */
+  writeRegField(CC1101_REG_MCSM0, 1, 5, 4);
+
+  /* Enable append status */
+  writeRegField(CC1101_REG_PKTCTRL1, 1, 2, 2);
+
+  /* Disable data whitening. */
+  // setDataWhitening(false);
+};
+bool Radio::setMod(Modulation mod){
+  writeRegField(CC1101_REG_MDMCFG2, (uint8_t)mod, 6, 4);
+  // setPower(power);
+};
+bool Radio::setFreq(double freq){
+  uint32_t f = ((freq * 65536.0) / CC1101_CRYSTAL_FREQ) 
+
+    writeReg(CC1101_REG_FREQ, f & 0xff);
+    writeReg(CC1101_REG_FREQ1, (f >> 8) & 0xff);
+    writeReg(CC1101_REG_FREQ2, (f >> 16) & 0xff);
+
+    // setPower(power);
+};
+void Radio::setDrate(double drate){
+  uint32_t xosc = CC1101_CRYSTAL_FREQ * 1000;
+  uint8_t e = log2((drate * (double)((uint32_t)1 << 20)) / xosc);
+  uint32_t m = round(drate * ((double)((uint32_t)1 << (28 - e)) / xosc) - 256.);
+
+  if (m == 256) {
+    m = 0;
+    e++;
+  }
+
+  writeRegField(CC1101_REG_MDMCFG4, e, 3, 0);
+  writeReg(CC1101_REG_MDMCFG3, (uint8_t)m);
+};
+void Radio::setPower(int8_t drate){
+  uint8_t powerIdx, freqIdx;
+
+  switch(freq) {
+    case <= 348.0:
+      freqIdx = 0;
+    case <= 464.0:
+      freqIdx = 1;
+    case <= 891.5:
+      freqIdx = 2;
+    default:
+      freqIdx = 3;
+  }
+
+  switch(power) {
+    case <= -30:
+      powerIdx = 0;
+    case <= -20:
+      powerIdx = 1;
+    case <= -15:
+      powerIdx = 2;
+    case <= -10:
+      powerIdx = 3;
+    case <= 0:
+      powerIdx = 4;
+    case <= 5:
+      powerIdx = 5;
+    case <= 7:
+      powerIdx = 6;
+    default:
+      powerIdx = 7;
+  }
+
+  if(mod == MOD_ASK_OOK) {
+    writeRegBurst(CC1101_REG_PATABLE, {0x00, powerRange[freqIdx][powerIdx]}, 2);
+    writeRegField(CC1101_REG_FREND0, 1, 2, 0);
+  } else {
+    writeReg(CC1101_REG_PATABLE, powerRange[freqIdx][powerIdx]);
+    writeRegField(CC1101_REG_FREND0, 0, 2, 0);
+  }
+};
 
 uint8_t Radio::readReg(uint8_t addr){
   uint8_t header = CC1101_READ | (addr & 0b111111);
@@ -104,7 +190,6 @@ void Radio::writeStatusReg(uint8_t addr, uint8_t buff){
   stop();
 };
 void Radio::writeRegField(uint8_t addr, uint8_t data, uint8_t hi, uint8_t lo){
-  // buff <<= lo;
   uint8_t mask = ((1 << (hi - lo +1)) -1) << lo;
   writeReg(addr, (readReg & ~mask) | ((buff <<= lo) & mask));
 };

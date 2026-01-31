@@ -87,10 +87,28 @@ class Radio:{
     SPIClass spi;
     SPISettings spiSettings = SPISettings(CC1101_SPI_MAX_FREQ, CC1101_SPI_DATA_ORDER, CC1101_SPI_DATA_MODE);
 
-    double freq = 433.5;
-    double drate = 4.0;
-    int8_t power = 0;
+    Modulation mod;
+    double freq, drate;
+    int8_t power;
     uint8_t pktLen;
+
+  static const double drateRange[][2] = {
+    [MOD_2FSK]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
+    [MOD_GFSK]    = {  0.6, 250.0 },
+    [2]           = {  0.0, 0.0   },  /* gap */
+    [MOD_ASK_OOK] = {  0.6, 250.0 },
+    [MOD_4FSK]    = {  0.6, 300.0 },
+    [5]           = {  0.0, 0.0   },  /* gap */
+    [6]           = {  0.0, 0.0   },  /* gap */
+    [MOD_MSK]     = { 26.0, 500.0 }
+  };
+
+  static const uint8_t powerRange[][8] = {
+    [0 /* 315 Mhz */ ] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
+    [1 /* 433 Mhz */ ] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
+    [2 /* 868 Mhz */ ] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
+    [3 /* 915 MHz */ ] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 }
+  };
 
     void start();
     void stop();
@@ -103,7 +121,7 @@ class Radio:{
     void setMod(Modulation mod);
     void setFreq(double freq);
     void setDrate(double drate);
-    void setPower(int8_t drate);
+    void setPower(int8_t power);
 
     uint8_t readReg(uint8_t addr);
     uint8_t readStatusReg(uint8_t addr);
