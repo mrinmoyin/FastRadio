@@ -21,13 +21,13 @@
 #define CC1101_VERSION_LEGACY     0x04
 
 /* Command strobes */
-#define CC1101_CMD_RES            0x30  /* Reset chip */
-#define CC1101_CMD_RX             0x34  /* Enable RX */
-#define CC1101_CMD_TX             0x35  /* Enable TX */
-#define CC1101_CMD_IDLE           0x36  /* Enable IDLE */
-#define CC1101_CMD_FRX            0x3a  /* Flush the RX FIFO buffer */
-#define CC1101_CMD_FTX            0x3b  /* Flush the TX FIFO buffer */
-#define CC1101_CMD_NOP            0x3d  /* No operation */
+#define CC1101_REG_RES            0x30  /* Reset chip */
+#define CC1101_REG_RX             0x34  /* Enable RX */
+#define CC1101_REG_TX             0x35  /* Enable TX */
+#define CC1101_REG_IDLE           0x36  /* Enable IDLE */
+#define CC1101_REG_FRX            0x3a  /* Flush the RX FIFO buffer */
+#define CC1101_REG_FTX            0x3b  /* Flush the TX FIFO buffer */
+#define CC1101_REG_NOP            0x3d  /* No operation */
 
 /* Registers */
 #define CC1101_REG_IOCFG0         0x02
@@ -72,7 +72,25 @@ enum Modulation {
   MOD_MSK     = 7
 };
 
-class Radio:{
+  static const double drateRange[][2] = {
+    [MOD_2FSK]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
+    [MOD_GFSK]    = {  0.6, 250.0 },
+    [2]           = {  0.0, 0.0   },  /* gap */
+    [MOD_ASK_OOK] = {  0.6, 250.0 },
+    [MOD_4FSK]    = {  0.6, 300.0 },
+    [5]           = {  0.0, 0.0   },  /* gap */
+    [6]           = {  0.0, 0.0   },  /* gap */
+    [MOD_MSK]     = { 26.0, 500.0 }
+  };
+
+  static const uint8_t powerRange[][8] = {
+    [0 /* 315 Mhz */ ] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
+    [1 /* 433 Mhz */ ] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
+    [2 /* 868 Mhz */ ] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
+    [3 /* 915 MHz */ ] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 }
+  };
+
+class Radio {
   public
     : Radio(int8_t sck = SCK, int8_t miso = MISO, int8_t mosi = MOSI, int8_t ss = SS, SPIClass spi = SPI, Modulation mod = MOD_2FSK, double freq = 433.0, double drate = 4.0):sck(sck), miso(miso), mosi(mosi), ss(ss), spi(spi), mod(mod), freq(freq), drate(drate) {};
 
@@ -91,24 +109,6 @@ class Radio:{
     double freq, drate;
     int8_t power;
     uint8_t pktLen;
-
-  static const double drateRange[][2] = {
-    [MOD_2FSK]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
-    [MOD_GFSK]    = {  0.6, 250.0 },
-    [2]           = {  0.0, 0.0   },  /* gap */
-    [MOD_ASK_OOK] = {  0.6, 250.0 },
-    [MOD_4FSK]    = {  0.6, 300.0 },
-    [5]           = {  0.0, 0.0   },  /* gap */
-    [6]           = {  0.0, 0.0   },  /* gap */
-    [MOD_MSK]     = { 26.0, 500.0 }
-  };
-
-  static const uint8_t powerRange[][8] = {
-    [0 /* 315 Mhz */ ] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
-    [1 /* 433 Mhz */ ] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
-    [2 /* 868 Mhz */ ] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
-    [3 /* 915 MHz */ ] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 }
-  };
 
     void start();
     void stop();
@@ -130,7 +130,7 @@ class Radio:{
 
     void writeReg(uint8_t addr, uint8_t buff);
     void writeStatusReg(uint8_t addr);
-    void writeRegField(uint8_t addr, uint8_t data, uint8_t hi, uint8_t lo);
+    void writeRegField(uint8_t addr, uint8_t buff, uint8_t hi, uint8_t lo);
     void writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t size);
 };
 
