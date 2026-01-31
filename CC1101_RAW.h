@@ -79,8 +79,8 @@ class Radio:{
   uint8_t partnum, version, rssi, lqi;
 
   bool begin(Modulation mod, double freq, double drate);
-  bool transmit(uint8_t *buffer, uint8_t lenght);
-  bool receive(uint8_t *buffer, uint8_t lenght);
+  bool write(uint8_t *buffer, uint8_t size);
+  bool read(uint8_t *buffer, uint8_t size);
 
   private: 
     uint8_t sck, miso, mosi, ss;
@@ -106,12 +106,14 @@ class Radio:{
     void setPower(int8_t drate);
 
     uint8_t readReg(uint8_t addr);
+    uint8_t readStatusReg(uint8_t addr);
     uint8_t readRegField(uint8_t addr, uint8_t hi, uint8_t lo);
-    uint8_t readRegBurst(uint8_t addr, uint8_t *buff, uint8_t length);
+    uint8_t readRegBurst(uint8_t addr, uint8_t *buff, uint8_t size);
 
-    void writeRegField(uint8_t addr, uint8_t data, uint8_t hi, uint8_t lo);
     void writeReg(uint8_t addr, uint8_t buff);
-    void writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t length);
+    void writeStatusReg(uint8_t addr, uint8_t buff);
+    void writeRegField(uint8_t addr, uint8_t data, uint8_t hi, uint8_t lo);
+    void writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t size);
 };
 
 #endif
