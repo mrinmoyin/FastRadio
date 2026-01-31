@@ -64,13 +64,54 @@
 #define CC1101_REG_RXBYTES        0x3b
 #define CC1101_REG_RCCTRL0_STATUS 0x3d
 
+enum Modulation {
+  MOD_2FSK    = 0,
+  MOD_GFSK    = 1,
+  MOD_ASK_OOK = 3,
+  MOD_4FSK    = 4,
+  MOD_MSK     = 7
+};
+
 class Radio:{
   public
     : Radio(int8_t sck = SCK, int8_t miso = MISO, int8_t mosi = MOSI, int8_t ss = SS, SPIClass spi = SPI):sck(sck), miso(miso), mosi(mosi), ss(ss), spi(spi) {};
 
+  uint8_t partnum, version, rssi, lqi;
+
+  bool begin(Modulation mod, double freq, double drate);
+  bool transmit(uint8_t *buffer, uint8_t lenght);
+  bool receive(uint8_t *buffer, uint8_t lenght);
+
   private: 
     uint8_t sck, miso, mosi, ss;
     SPIClass spi;
+    SPISettings spiSettings = SPISettings(CC1101_SPI_MAX_FREQ, CC1101_SPI_DATA_ORDER, CC1101_SPI_DATA_MODE);
+
+    double freq = 433.5;
+    double drate = 4.0;
+    int8_t power = 0;
+    uint8_t pktLen;
+
+    void start();
+    void stop();
+
+    void hardReset();
+    void flushRxBuffer();
+    void flushTxBuffer();
+
+    void setRegs();
+    void setMod(Modulation mod);
+    void setFreq(double freq);
+    void setDrate(double drate);
+    void setPower(int8_t drate);
+
+    uint8_t readReg(uint8_t addr);
+    uint8_t readRegField(uint8_t addr, uint8_t hi, uint8_t lo);
+    uint8_t readRegBurst(uint8_t addr, uint8_t *buff, uint8_t length);
+
+    void writeRegField(uint8_t addr, uint8_t data, uint8_t hi, uint8_t lo);
+    void writeReg(uint8_t addr, uint8_t buff);
+    void writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t length);
 };
 
 #endif
