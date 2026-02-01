@@ -1,4 +1,4 @@
-#include "CC1101_RAW.h"
+#include "CC1101.h"
 
 bool Radio::begin() {
   hardReset();
@@ -167,10 +167,10 @@ uint8_t Radio::readReg(uint8_t addr){
   return data;
 };
 uint8_t Radio::readStatusReg(uint8_t addr){
-  uint8_t header = CC1101_READ | CC1101_BURST | (addr & 0b111111);
+  // uint8_t header = CC1101_READ | CC1101_BURST | (addr & 0b111111);
   // uint8_t header = CC1101_READ | (addr & 0b111111);
   // header |= CC1101_BURST;
-  // uint8_t header = addr | CC1101_BURST;
+  uint8_t header = addr | CC1101_BURST;
 
   start();
   spi.transfer(header);

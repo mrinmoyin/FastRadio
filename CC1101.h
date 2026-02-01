@@ -1,6 +1,6 @@
 // #pragma once
-#ifndef CC1101_RAW
-#define CC1101_RAW
+#ifndef CC1101
+#define CC1101
 
 #include <Arduino.h>
 #include <SPI.h>
