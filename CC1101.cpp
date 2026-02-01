@@ -36,11 +36,7 @@ bool Radio::write(uint8_t *buff, uint8_t size){
   // writeReg(REG_FIFO, FIFO_SIZE);
   writeReg(REG_FIFO, 1);
   writeRegBurst(REG_FIFO, buff, size);
-  // while(readStatusReg(REG_NOP) > 0);
-  while(true) {
-    uint8_t state = readStatusReg(REG_NOP);
-    if(state == 0) break;
-  }
+  while(readStatusReg(REG_NOP) > 0);
 };
 
 void Radio::start() {
