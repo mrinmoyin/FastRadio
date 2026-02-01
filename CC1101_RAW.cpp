@@ -2,24 +2,32 @@
 
 bool Radio::begin() {
   hardReset();
+  delay(10);
 
-  partnum = readStatusReg(CC1101_REG_PARTNUM);
-  version = readStatusReg(CC1101_REG_VERSION);
-  Serial.print(F("PartNum: "));
-  Serial.println(partnum);
-  Serial.print(F("Version: "));
-  Serial.println(version);
+  partnum = readReg(CC1101_REG_PARTNUM);
+  version = readReg(CC1101_REG_VERSION);
 
-  if(partnum != CC1101_PARTNUM || version != CC1101_VERSION || version != CC1101_VERSION_LEGACY) {
+  if(
+      (
+       partnum != CC1101_PARTNUM || 
+       version != CC1101_VERSION || 
+       version != CC1101_VERSION_LEGACY
+       ) || !(
+        (freq >= 300.0 && freq <= 348.0) ||
+        (freq >= 387.0 && freq <= 464.0) ||
+        (freq >= 779.0 && freq <= 928.0)
+        ) || (
+          drate < drateRange[mod][0] ||
+          drate > drateRange[mod][1]
+          )
+    ) {
+    // Serial.println(F("Wrong partnum or freq or drate!"));
+    // Serial.print(F("PartNum: "));
+    // Serial.println(partnum);
+    // Serial.print(F("Version: "));
+    // Serial.println(version);
     return false;
   }
-
-  if (
-      !((freq >= 300.0 && freq <= 348.0) ||
-        (freq >= 387.0 && freq <= 464.0) ||
-        (freq >= 779.0 && freq <= 928.0)) ||
-      (drate < drateRange[mod][0] || drate > drateRange[mod][1])
-      ) return false;
 
   setRegs();
   setMod(mod);
@@ -41,8 +49,7 @@ void Radio::start() {
     return;
   #endif
 
-  while (digitalRead(miso))
-    ;
+  while (digitalRead(miso));
 }
 void Radio::stop() {
   digitalWrite(ss, HIGH);
@@ -50,6 +57,13 @@ void Radio::stop() {
 }
 
 void Radio::hardReset() {
+  digitalWrite(ss, HIGH);
+  delayMicroseconds(5);
+  digitalWrite(ss, LOW);
+  delayMicroseconds(5);
+  digitalWrite(ss, HIGH);
+  delayMicroseconds(40);
+
   start();
   spi.transfer(CC1101_REG_RES);
   stop();
@@ -146,18 +160,27 @@ uint8_t Radio::readReg(uint8_t addr){
   uint8_t data = spi.transfer(CC1101_WRITE);
   stop();
 
+  Serial.print("readReg ");
+  Serial.write(addr);
+  Serial.print(" : ");
+  Serial.println(data);
   return data;
 };
 uint8_t Radio::readStatusReg(uint8_t addr){
   uint8_t header = CC1101_READ | CC1101_BURST | (addr & 0b111111);
   // uint8_t header = CC1101_READ | (addr & 0b111111);
   // header |= CC1101_BURST;
+  // uint8_t header = addr | CC1101_BURST;
 
   start();
   spi.transfer(header);
   uint8_t data = spi.transfer(CC1101_WRITE);
   stop();
 
+  Serial.print("readStatusReg ");
+  Serial.write(addr);
+  Serial.print(" : ");
+  Serial.println(data);
   return data;
 };
 uint8_t Radio::readRegField(uint8_t addr, uint8_t hi, uint8_t lo){

@@ -100,7 +100,7 @@ class Radio {
         int8_t miso = MISO,
         int8_t mosi = MOSI,
         int8_t ss = SS,
-        SPIClass spi = HSPI
+        SPIClass &spi = SPI
         ):
       mod(mod),
       freq(freq),
@@ -120,7 +120,7 @@ class Radio {
 
   private: 
     uint8_t sck, miso, mosi, ss;
-    SPIClass spi;
+    SPIClass &spi;
     SPISettings spiSettings;
 
     Modulation mod;
