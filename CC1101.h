@@ -5,82 +5,83 @@
 #include <Arduino.h>
 #include <SPI.h>
 
-#define CC1101_SPI_MAX_FREQ       6500000    /* 6.5 MHz */
-#define CC1101_SPI_DATA_ORDER     MSBFIRST
-#define CC1101_SPI_DATA_MODE      SPI_MODE0  /* clk low, leading edge */
+#define SPI_MAX_FREQ       6500000    /* 6.5 MHz */
+#define SPI_DATA_ORDER     MSBFIRST
+#define SPI_DATA_MODE      SPI_MODE0  /* clk low, leading edge */
 
-#define CC1101_FIFO_SIZE          64    /* 64 B */
-#define CC1101_CRYSTAL_FREQ       26    /* 26 MHz */
+#define FIFO_SIZE          64    /* 64 B */
+#define CRYSTAL_FREQ       26    /* 26 MHz */
 
-#define CC1101_WRITE              0x00
-#define CC1101_READ               0x80
-#define CC1101_BURST              0x40
+#define READ               0x80
+#define WRITE              0x00
+#define READ_BURST         0xC0
+#define WRITE_BURST        0x40
 
-#define CC1101_PARTNUM            0x00
-#define CC1101_VERSION            0x14
-#define CC1101_VERSION_LEGACY     0x04
+#define PARTNUM            0x00
+#define VERSION            0x14
+#define VERSION_LEGACY     0x04
 
 /* Command strobes */
-#define CC1101_REG_RES            0x30  /* Reset chip */
-#define CC1101_REG_RX             0x34  /* Enable RX */
-#define CC1101_REG_TX             0x35  /* Enable TX */
-#define CC1101_REG_IDLE           0x36  /* Enable IDLE */
-#define CC1101_REG_FRX            0x3a  /* Flush the RX FIFO buffer */
-#define CC1101_REG_FTX            0x3b  /* Flush the TX FIFO buffer */
-#define CC1101_REG_NOP            0x3d  /* No operation */
+#define REG_RES            0x30  /* Reset chip */
+#define REG_RX             0x34  /* Enable RX */
+#define REG_TX             0x35  /* Enable TX */
+#define REG_IDLE           0x36  /* Enable IDLE */
+#define REG_FRX            0x3a  /* Flush the RX FIFO buffer */
+#define REG_FTX            0x3b  /* Flush the TX FIFO buffer */
+#define REG_NOP            0x3d  /* No operation */
 
 /* Registers */
-#define CC1101_REG_IOCFG0         0x02
-#define CC1101_REG_SYNC1          0x04  /* Sync Word, High Byte */
-#define CC1101_REG_SYNC0          0x05  /* Sync Word, Low Byte */
-#define CC1101_REG_PKTLEN         0x06
-#define CC1101_REG_PKTCTRL1       0x07
-#define CC1101_REG_PKTCTRL0       0x08  /* Packet Automation Control */
-#define CC1101_REG_ADDR           0x09
+#define REG_IOCFG0         0x02
+#define REG_SYNC1          0x04  /* Sync Word, High Byte */
+#define REG_SYNC0          0x05  /* Sync Word, Low Byte */
+#define REG_PKTLEN         0x06
+#define REG_PKTCTRL1       0x07
+#define REG_PKTCTRL0       0x08  /* Packet Automation Control */
+#define REG_ADDR           0x09
 
-#define CC1101_REG_CHANNR         0x0a
-#define CC1101_REG_FREQ2          0x0d
-#define CC1101_REG_FREQ1          0x0e
-#define CC1101_REG_MDMCFG4        0x10
-#define CC1101_REG_MDMCFG3        0x11
-#define CC1101_REG_MDMCFG2        0x12  /* Modem Configuration */
-#define CC1101_REG_MDMCFG1        0x13
-#define CC1101_REG_MDMCFG0        0x14
-#define CC1101_REG_DEVIATN        0x15
-#define CC1101_REG_FREQ0          0x0f
+#define REG_CHANNR         0x0a
+#define REG_FREQ2          0x0d
+#define REG_FREQ1          0x0e
+#define REG_MDMCFG4        0x10
+#define REG_MDMCFG3        0x11
+#define REG_MDMCFG2        0x12  /* Modem Configuration */
+#define REG_MDMCFG1        0x13
+#define REG_MDMCFG0        0x14
+#define REG_DEVIATN        0x15
+#define REG_FREQ0          0x0f
 
-#define CC1101_REG_MCSM2          0x16
-#define CC1101_REG_MCSM1          0x17
-#define CC1101_REG_MCSM0          0x18
-#define CC1101_REG_FREND0         0x22  /* Front End TX Configuration */
+#define REG_MCSM2          0x16
+#define REG_MCSM1          0x17
+#define REG_MCSM0          0x18
+#define REG_FREND0         0x22  /* Front End TX Configuration */
 
-#define CC1101_REG_PATABLE        0x3e
-#define CC1101_REG_FIFO           0x3f
+#define REG_PATABLE        0x3e
+#define REG_FIFO           0x3f
 
 /* Status registers */
-#define CC1101_REG_PARTNUM        0x30
-#define CC1101_REG_VERSION        0x31
-#define CC1101_REG_TXBYTES        0x3a
-#define CC1101_REG_RXBYTES        0x3b
-#define CC1101_REG_RCCTRL0_STATUS 0x3d
+#define REG_PARTNUM        0x30
+#define REG_VERSION        0x31
+#define REG_TXBYTES        0x3a
+#define REG_RXBYTES        0x3b
+#define REG_RCCTRL0_STATUS 0x3d
 
 enum Modulation {
-  MOD_2FSK    = 0,
-  MOD_GFSK    = 1,
-  MOD_ASK_OOK = 3,
-  MOD_4FSK    = 4,
-  MOD_MSK     = 7
+  FSK2    = 0,
+  GFSK    = 1,
+  ASK_OOK = 3,
+  FSK4    = 4,
+  MSK     = 7
 };
 
   static const double drateRange[][2] = {
-    [MOD_2FSK]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
-    [MOD_GFSK]    = {  0.6, 250.0 },
+    [FSK2]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
+    [GFSK]    = {  0.6, 250.0 },
     [2]           = {  0.0, 0.0   },  /* gap */
-    [MOD_ASK_OOK] = {  0.6, 250.0 },
-    [MOD_4FSK]    = {  0.6, 300.0 },
+    [ASK_OOK] = {  0.6, 250.0 },
+    [FSK4]    = {  0.6, 300.0 },
     [5]           = {  0.0, 0.0   },  /* gap */
     [6]           = {  0.0, 0.0   },  /* gap */
-    [MOD_MSK]     = { 26.0, 500.0 }
+    [MSK]     = { 26.0, 500.0 }
   };
 
   static const uint8_t powerRange[][8] = {
@@ -93,7 +94,7 @@ enum Modulation {
 class Radio {
   public
     : Radio(
-        Modulation mod = MOD_2FSK,
+        Modulation mod = FSK2,
         double freq = 433.0,
         double drate = 4.0,
         int8_t sck = SCK,
@@ -110,7 +111,7 @@ class Radio {
       mosi(mosi),
       ss(ss),
       spi(spi),
-      spiSettings(CC1101_SPI_MAX_FREQ, CC1101_SPI_DATA_ORDER, CC1101_SPI_DATA_MODE) {};
+      spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE) {};
 
   uint8_t partnum, version, rssi, lqi;
 

@@ -4,14 +4,13 @@ bool Radio::begin() {
   hardReset();
   delay(10);
 
-  partnum = readStatusReg(CC1101_REG_PARTNUM);
-  version = readStatusReg(CC1101_REG_VERSION);
+  partnum = readStatusReg(REG_PARTNUM);
+  version = readStatusReg(REG_VERSION);
 
   if(
       (
-       partnum != CC1101_PARTNUM || 
-       version != CC1101_VERSION || 
-       version != CC1101_VERSION_LEGACY
+       partnum != PARTNUM || 
+       !(version != VERSION || version != VERSION_LEGACY)
        ) || !(
         (freq >= 300.0 && freq <= 348.0) ||
         (freq >= 387.0 && freq <= 464.0) ||
@@ -20,14 +19,7 @@ bool Radio::begin() {
           drate < drateRange[mod][0] ||
           drate > drateRange[mod][1]
           )
-    ) {
-    // Serial.println(F("Wrong partnum or freq or drate!"));
-    // Serial.print(F("PartNum: "));
-    // Serial.println(partnum);
-    // Serial.print(F("Version: "));
-    // Serial.println(version);
-    return false;
-  }
+    ) return false;
 
   setRegs();
   setMod(mod);
@@ -35,11 +27,21 @@ bool Radio::begin() {
   setDrate(drate);
   setPower(power);
 
-    return true;
+  return true;
 }
 
 bool Radio::read(uint8_t *buff, uint8_t size){};
-bool Radio::write(uint8_t *buff, uint8_t size){};
+bool Radio::write(uint8_t *buff, uint8_t size){
+  flushTxBuffer();
+  // writeReg(REG_FIFO, FIFO_SIZE);
+  writeReg(REG_FIFO, 1);
+  writeRegBurst(REG_FIFO, buff, size);
+  // while(readStatusReg(REG_NOP) > 0);
+  while(true) {
+    uint8_t state = readStatusReg(REG_NOP);
+    if(state == 0) break;
+  }
+};
 
 void Radio::start() {
   spi.beginTransaction(spiSettings);
@@ -65,41 +67,41 @@ void Radio::hardReset() {
   delayMicroseconds(40);
 
   start();
-  spi.transfer(CC1101_REG_RES);
+  spi.transfer(REG_RES);
   stop();
 }
 void Radio::flushRxBuffer(){
-  writeStatusReg(CC1101_REG_FRX);
+  writeStatusReg(REG_FRX);
 };
 void Radio::flushTxBuffer(){
-  writeStatusReg(CC1101_REG_FTX);
+  writeStatusReg(REG_FTX);
 };
 
 void Radio::setRegs(){
   /* Automatically calibrate when going from IDLE to RX or TX. */
-  writeRegField(CC1101_REG_MCSM0, 1, 5, 4);
+  writeRegField(REG_MCSM0, 1, 5, 4);
 
   /* Enable append status */
-  writeRegField(CC1101_REG_PKTCTRL1, 1, 2, 2);
+  writeRegField(REG_PKTCTRL1, 1, 2, 2);
 
   /* Disable data whitening. */
   // setDataWhitening(false);
 };
 void Radio::setMod(Modulation mod){
-  writeRegField(CC1101_REG_MDMCFG2, (uint8_t)mod, 6, 4);
+  writeRegField(REG_MDMCFG2, (uint8_t)mod, 6, 4);
   // setPower(power);
 };
 void Radio::setFreq(double freq){
-  uint32_t f = ((freq * 65536.0) / CC1101_CRYSTAL_FREQ); 
+  uint32_t f = ((freq * 65536.0) / CRYSTAL_FREQ); 
 
-  writeReg(CC1101_REG_FREQ0, f & 0xff);
-  writeReg(CC1101_REG_FREQ1, (f >> 8) & 0xff);
-  writeReg(CC1101_REG_FREQ2, (f >> 16) & 0xff);
+  writeReg(REG_FREQ0, f & 0xff);
+  writeReg(REG_FREQ1, (f >> 8) & 0xff);
+  writeReg(REG_FREQ2, (f >> 16) & 0xff);
 
     // setPower(power);
 };
 void Radio::setDrate(double drate){
-  uint32_t xosc = CC1101_CRYSTAL_FREQ * 1000;
+  uint32_t xosc = CRYSTAL_FREQ * 1000;
   uint8_t e = log2((drate * (double)((uint32_t)1 << 20)) / xosc);
   uint32_t m = round(drate * ((double)((uint32_t)1 << (28 - e)) / xosc) - 256.);
 
@@ -108,8 +110,8 @@ void Radio::setDrate(double drate){
     e++;
   }
 
-  writeRegField(CC1101_REG_MDMCFG4, e, 3, 0);
-  writeReg(CC1101_REG_MDMCFG3, (uint8_t)m);
+  writeRegField(REG_MDMCFG4, e, 3, 0);
+  writeReg(REG_MDMCFG3, (uint8_t)m);
 };
 void Radio::setPower(int8_t drate){
   uint8_t powerIdx, freqIdx;
@@ -142,22 +144,22 @@ void Radio::setPower(int8_t drate){
       powerIdx = 7;
   }
 
-  if(mod == MOD_ASK_OOK) {
-    uint8_t buff[2] = { CC1101_WRITE, powerRange[freqIdx][powerIdx] };
-    writeRegBurst(CC1101_REG_PATABLE, buff, sizeof(buff));
-    writeRegField(CC1101_REG_FREND0, 1, 2, 0);
+  if(mod == ASK_OOK) {
+    uint8_t buff[2] = { WRITE, powerRange[freqIdx][powerIdx] };
+    writeRegBurst(REG_PATABLE, buff, sizeof(buff));
+    writeRegField(REG_FREND0, 1, 2, 0);
   } else {
-    writeReg(CC1101_REG_PATABLE, powerRange[freqIdx][powerIdx]);
-    writeRegField(CC1101_REG_FREND0, 0, 2, 0);
+    writeReg(REG_PATABLE, powerRange[freqIdx][powerIdx]);
+    writeRegField(REG_FREND0, 0, 2, 0);
   }
 };
 
 uint8_t Radio::readReg(uint8_t addr){
-  uint8_t header = CC1101_READ | (addr & 0b111111);
+  uint8_t header = READ | (addr & 0b111111);
 
   start();
   spi.transfer(header);
-  uint8_t data = spi.transfer(CC1101_WRITE);
+  uint8_t data = spi.transfer(WRITE);
   stop();
 
   Serial.print("readReg ");
@@ -167,14 +169,10 @@ uint8_t Radio::readReg(uint8_t addr){
   return data;
 };
 uint8_t Radio::readStatusReg(uint8_t addr){
-  // uint8_t header = CC1101_READ | CC1101_BURST | (addr & 0b111111);
-  // uint8_t header = CC1101_READ | (addr & 0b111111);
-  // header |= CC1101_BURST;
-  uint8_t header = addr | CC1101_BURST;
-
   start();
-  spi.transfer(header);
-  uint8_t data = spi.transfer(CC1101_WRITE);
+  // spi.transfer(READ | (addr & 0b111111) | BURST);
+  spi.transfer(addr | READ_BURST);
+  uint8_t data = spi.transfer(WRITE);
   stop();
 
   Serial.print("readStatusReg ");
@@ -187,26 +185,24 @@ uint8_t Radio::readRegField(uint8_t addr, uint8_t hi, uint8_t lo){
   return readStatusReg((addr) >> lo) & ((1 << (hi - lo + 1)) -1);
 };
 uint8_t Radio::readRegBurst(uint8_t addr, uint8_t *buff, uint8_t size){
-  uint8_t header = CC1101_READ | CC1101_BURST | (addr & 0b111111);
-
   start();
-  spi.transfer(header);
+  // spi.transfer(READ | WRITE_BURST | (addr & 0b111111));
+  spi.transfer(addr | READ_BURST);
   for (uint8_t i = 0; i < size; i++) {
-    buff[i] = spi.transfer(CC1101_WRITE);
+    buff[i] = spi.transfer(WRITE);
   }
   stop();
 };
 
 void Radio::writeReg(uint8_t addr, uint8_t buff){
-  uint8_t header = CC1101_WRITE | (addr & 0b111111);
-
   start();
-    spi.transfer(header);
+    // spi.transfer(WRITE | (addr & 0b111111));
+    spi.transfer(addr);
     spi.transfer(buff);
   stop();
 };
 void Radio::writeStatusReg(uint8_t addr){
-  uint8_t header = CC1101_WRITE | (addr & 0b111111);
+  uint8_t header = WRITE | (addr & 0b111111);
 
   start();
     spi.transfer(header);
@@ -217,10 +213,9 @@ void Radio::writeRegField(uint8_t addr, uint8_t buff, uint8_t hi, uint8_t lo){
   writeReg(addr, (readReg(addr) & ~mask) | ((buff <<= lo) & mask));
 };
 void Radio::writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t size){
-  uint8_t header = CC1101_WRITE | CC1101_BURST | (addr & 0b111111);
-
   start();
-    spi.transfer(header);
+    // spi.transfer(WRITE | BURST | (addr & 0b111111));
+    spi.transfer(addr | WRITE_BURST);
     for (uint8_t i = 0; i < size; i++) {
        spi.transfer(buff[i]);
     }
