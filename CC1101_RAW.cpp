@@ -4,8 +4,8 @@ bool Radio::begin() {
   hardReset();
   delay(10);
 
-  partnum = readReg(CC1101_REG_PARTNUM);
-  version = readReg(CC1101_REG_VERSION);
+  partnum = readStatusReg(CC1101_REG_PARTNUM);
+  version = readStatusReg(CC1101_REG_VERSION);
 
   if(
       (
