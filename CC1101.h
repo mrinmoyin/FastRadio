@@ -142,15 +142,15 @@ class Radio {
     void setDrate(double drate);
     void setPower(int8_t power);
 
-    uint8_t readReg(uint8_t addr);
-    uint8_t readStatusReg(uint8_t addr);
-    uint8_t readRegField(uint8_t addr, uint8_t hi, uint8_t lo);
-    uint8_t readRegBurst(uint8_t addr, uint8_t *buff, uint8_t size);
+    uint8_t readReg(byte addr);
+    uint8_t readStatusReg(byte addr);
+    uint8_t readRegField(byte addr, byte hi, byte lo);
+    uint8_t readRegBurst(byte addr, uint8_t *buff, size_t size);
 
-    void writeReg(uint8_t addr, uint8_t buff);
-    void writeStatusReg(uint8_t addr);
-    void writeRegField(uint8_t addr, uint8_t buff, uint8_t hi, uint8_t lo);
-    void writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t size);
+    void writeReg(byte addr, byte val);
+    void writeStatusReg(byte addr);
+    void writeRegField(byte addr, byte val, byte hi, byte lo);
+    void writeRegBurst(byte addr, uint8_t *buff, size_t size);
 };
 
 #endif

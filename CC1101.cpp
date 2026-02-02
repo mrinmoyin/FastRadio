@@ -154,7 +154,7 @@ void Radio::setPower(int8_t drate){
   }
 };
 
-uint8_t Radio::readReg(uint8_t addr){
+uint8_t Radio::readReg(byte addr){
   start();
   // spi.transfer(READ | (addr & 0b111111));
   spi.transfer(addr | READ);
@@ -167,26 +167,22 @@ uint8_t Radio::readReg(uint8_t addr){
   Serial.println(data);
   return data;
 };
-uint8_t Radio::readStatusReg(uint8_t addr){
+uint8_t Radio::readStatusReg(byte addr){
   start();
-  uint8_t header = READ | (addr & 0b111111);
-  header |= WRITE_BURST;
-  spi.transfer(header);
-  // spi.transfer(READ | (addr & 0b111111) | WRITE_BURST);
-  // spi.transfer(addr | READ_BURST);
+  spi.transfer(addr | READ_BURST);
   uint8_t data = spi.transfer(WRITE);
   stop();
 
   Serial.print("readStatusReg ");
-  Serial.print(String(addr));
+  Serial.print(addr);
   Serial.print(" : ");
   Serial.println(data);
   return data;
 };
-uint8_t Radio::readRegField(uint8_t addr, uint8_t hi, uint8_t lo){
+uint8_t Radio::readRegField(byte addr, byte hi, byte lo){
   return readStatusReg((addr) >> lo) & ((1 << (hi - lo + 1)) -1);
 };
-uint8_t Radio::readRegBurst(uint8_t addr, uint8_t *buff, uint8_t size){
+uint8_t Radio::readRegBurst(byte addr, uint8_t *buff, size_t size){
   start();
   // spi.transfer(READ | WRITE_BURST | (addr & 0b111111));
   spi.transfer(addr | READ_BURST);
@@ -196,24 +192,24 @@ uint8_t Radio::readRegBurst(uint8_t addr, uint8_t *buff, uint8_t size){
   stop();
 };
 
-void Radio::writeReg(uint8_t addr, uint8_t buff){
+void Radio::writeReg(byte addr, byte val){
   start();
     // spi.transfer(WRITE | (addr & 0b111111));
     spi.transfer(addr);
-    spi.transfer(buff);
+    spi.transfer(val);
   stop();
 };
-void Radio::writeStatusReg(uint8_t addr){
+void Radio::writeStatusReg(byte addr){
   start();
     // spi.transfer(WRITE | (addr & 0b111111));
     spi.transfer(addr);
   stop();
 };
-void Radio::writeRegField(uint8_t addr, uint8_t buff, uint8_t hi, uint8_t lo){
+void Radio::writeRegField(byte addr, byte val, byte hi, byte lo){
   uint8_t mask = ((1 << (hi - lo +1)) -1) << lo;
-  writeReg(addr, (readReg(addr) & ~mask) | ((buff <<= lo) & mask));
+  writeReg(addr, (readReg(addr) & ~mask) | ((val <<= lo) & mask));
 };
-void Radio::writeRegBurst(uint8_t addr, uint8_t *buff, uint8_t size){
+void Radio::writeRegBurst(byte addr, uint8_t *buff, size_t size){
   start();
     // spi.transfer(WRITE | BURST | (addr & 0b111111));
     spi.transfer(addr | WRITE_BURST);
