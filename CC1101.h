@@ -73,23 +73,23 @@ enum Modulation {
   MSK     = 7
 };
 
-  static const double drateRange[][2] = {
-    [FSK2]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
-    [GFSK]    = {  0.6, 250.0 },
-    [2]           = {  0.0, 0.0   },  /* gap */
-    [ASK_OOK] = {  0.6, 250.0 },
-    [FSK4]    = {  0.6, 300.0 },
-    [5]           = {  0.0, 0.0   },  /* gap */
-    [6]           = {  0.0, 0.0   },  /* gap */
-    [MSK]     = { 26.0, 500.0 }
-  };
+static const double drateRange[][2] = {
+  [FSK2]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
+  [GFSK]    = {  0.6, 250.0 },
+  [2]       = {  0.0, 0.0   },  /* gap */
+  [ASK_OOK] = {  0.6, 250.0 },
+  [FSK4]    = {  0.6, 300.0 },
+  [5]       = {  0.0, 0.0   },  /* gap */
+  [6]       = {  0.0, 0.0   },  /* gap */
+  [MSK]     = { 26.0, 500.0 }
+};
 
-  static const uint8_t powerRange[][8] = {
-    [0 /* 315 Mhz */ ] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
-    [1 /* 433 Mhz */ ] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
-    [2 /* 868 Mhz */ ] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
-    [3 /* 915 MHz */ ] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 }
-  };
+static const uint8_t powerRange[][8] = {
+  [0 /* 315 Mhz */ ] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
+  [1 /* 433 Mhz */ ] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
+  [2 /* 868 Mhz */ ] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
+  [3 /* 915 MHz */ ] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 }
+};
 
 class Radio {
   public
@@ -111,7 +111,8 @@ class Radio {
       mosi(mosi),
       ss(ss),
       spi(spi),
-      spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE) {};
+      spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE),
+      buffLen(4) {};
 
   uint8_t partnum, version, rssi, lqi;
 
@@ -127,7 +128,7 @@ class Radio {
     Modulation mod;
     double freq, drate;
     int8_t power;
-    uint8_t pktLen;
+    uint8_t buffLen;
 
     void start();
     void stop();
@@ -145,7 +146,7 @@ class Radio {
     uint8_t readReg(byte addr);
     uint8_t readStatusReg(byte addr);
     uint8_t readRegField(byte addr, byte hi, byte lo);
-    uint8_t readRegBurst(byte addr, uint8_t *buff, size_t size);
+    void readRegBurst(byte addr, uint8_t *buff, size_t size);
 
     void writeReg(byte addr, byte val);
     void writeStatusReg(byte addr);

@@ -31,15 +31,16 @@ bool Radio::begin() {
 }
 
 bool Radio::read(uint8_t *buff){
-  readRegBurst(REG_FIFO, buff, sizeof(buff));
+  readRegBurst(REG_FIFO, buff, buffLen);
   return true;
 };
 bool Radio::write(uint8_t *buff){
   flushTxBuffer();
   // writeReg(REG_FIFO, FIFO_SIZE);
   writeReg(REG_FIFO, 1);
-  writeRegBurst(REG_FIFO, buff, sizeof(buff));
-  // while(readStatusReg(REG_NOP) > 0);
+  writeRegBurst(REG_FIFO, buff, buffLen);
+  while(readStatusReg(REG_NOP) > 0);
+  // delay(100);
   return true;
 };
 
@@ -182,7 +183,7 @@ uint8_t Radio::readStatusReg(byte addr){
 uint8_t Radio::readRegField(byte addr, byte hi, byte lo){
   return readStatusReg((addr) >> lo) & ((1 << (hi - lo + 1)) -1);
 };
-uint8_t Radio::readRegBurst(byte addr, uint8_t *buff, size_t size){
+void Radio::readRegBurst(byte addr, uint8_t *buff, size_t size){
   start();
   // spi.transfer(READ | WRITE_BURST | (addr & 0b111111));
   spi.transfer(addr | READ_BURST);
