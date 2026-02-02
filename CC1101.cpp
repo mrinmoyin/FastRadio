@@ -30,13 +30,17 @@ bool Radio::begin() {
   return true;
 }
 
-bool Radio::read(uint8_t *buff, uint8_t size){};
-bool Radio::write(uint8_t *buff, uint8_t size){
+bool Radio::read(uint8_t *buff){
+  readRegBurst(REG_FIFO, buff, sizeof(buff));
+  return true;
+};
+bool Radio::write(uint8_t *buff){
   flushTxBuffer();
   // writeReg(REG_FIFO, FIFO_SIZE);
   writeReg(REG_FIFO, 1);
-  writeRegBurst(REG_FIFO, buff, size);
-  while(readStatusReg(REG_NOP) > 0);
+  writeRegBurst(REG_FIFO, buff, sizeof(buff));
+  // while(readStatusReg(REG_NOP) > 0);
+  return true;
 };
 
 void Radio::start() {
@@ -151,28 +155,30 @@ void Radio::setPower(int8_t drate){
 };
 
 uint8_t Radio::readReg(uint8_t addr){
-  uint8_t header = READ | (addr & 0b111111);
-
   start();
-  spi.transfer(header);
+  // spi.transfer(READ | (addr & 0b111111));
+  spi.transfer(addr | READ);
   uint8_t data = spi.transfer(WRITE);
   stop();
 
   Serial.print("readReg ");
-  Serial.write(addr);
+  Serial.print(String(addr));
   Serial.print(" : ");
   Serial.println(data);
   return data;
 };
 uint8_t Radio::readStatusReg(uint8_t addr){
   start();
-  // spi.transfer(READ | (addr & 0b111111) | BURST);
-  spi.transfer(addr | READ_BURST);
+  uint8_t header = READ | (addr & 0b111111);
+  header |= WRITE_BURST;
+  spi.transfer(header);
+  // spi.transfer(READ | (addr & 0b111111) | WRITE_BURST);
+  // spi.transfer(addr | READ_BURST);
   uint8_t data = spi.transfer(WRITE);
   stop();
 
   Serial.print("readStatusReg ");
-  Serial.write(addr);
+  Serial.print(String(addr));
   Serial.print(" : ");
   Serial.println(data);
   return data;
@@ -198,10 +204,9 @@ void Radio::writeReg(uint8_t addr, uint8_t buff){
   stop();
 };
 void Radio::writeStatusReg(uint8_t addr){
-  uint8_t header = WRITE | (addr & 0b111111);
-
   start();
-    spi.transfer(header);
+    // spi.transfer(WRITE | (addr & 0b111111));
+    spi.transfer(addr);
   stop();
 };
 void Radio::writeRegField(uint8_t addr, uint8_t buff, uint8_t hi, uint8_t lo){

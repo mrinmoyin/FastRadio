@@ -116,8 +116,8 @@ class Radio {
   uint8_t partnum, version, rssi, lqi;
 
   bool begin();
-  bool read(uint8_t *buff, uint8_t size);
-  bool write(uint8_t *buff, uint8_t size);
+  bool read(uint8_t *buff);
+  bool write(uint8_t *buff);
 
   private: 
     uint8_t sck, miso, mosi, ss;
