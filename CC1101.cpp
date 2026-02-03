@@ -31,16 +31,47 @@ bool Radio::begin() {
 }
 
 bool Radio::read(uint8_t *buff){
+  uint8_t rxBytes = readStatusReg(REG_RXBYTES);
+  uint8_t bytesInFifo = readReg(REG_FIFO);
+
+  writeStatusReg(REG_FRX);
+  writeStatusReg(REG_IDLE);
+  writeStatusReg(REG_RX);
+  while (state != 1);
+
+  // do {
+  //   bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
+  // } while (bytesInFifo < 4);
+  
   readRegBurst(REG_FIFO, buff, buffLen);
+
+  writeStatusReg(REG_FRX);
+  writeStatusReg(REG_RX);
   return true;
 };
 bool Radio::write(uint8_t *buff){
-  flushTxBuffer();
+  uint8_t txBytes = readStatusReg(REG_TXBYTES);
+
+  if(getState() != 1) {
+    setIDLEState();
+    flushTxBuffer();
+    flushRxBuffer();
+    setRXState();
+  }
+  setTXState();
+
+  if(getState() == 1) {
+    return false;
+  }
+    
   // writeReg(REG_FIFO, FIFO_SIZE);
-  writeReg(REG_FIFO, 1);
+  writeReg(REG_FIFO, buffLen);
   writeRegBurst(REG_FIFO, buff, buffLen);
-  while(readStatusReg(REG_NOP) > 0);
-  // delay(100);
+  // while(readStatusReg(REG_NOP) > 0);
+  while (getState() != 0);
+  setIDLEState();
+  flushTxBuffer();
+  setRXState();
   return true;
 };
 
@@ -52,7 +83,7 @@ void Radio::start() {
     return;
   #endif
 
-  while (digitalRead(miso));
+  while (digitalRead(miso) > 0);
 }
 void Radio::stop() {
   digitalWrite(ss, HIGH);
@@ -154,6 +185,48 @@ void Radio::setPower(int8_t drate){
     writeRegField(REG_FREND0, 0, 2, 0);
   }
 };
+void Radio::setRXState(){
+  while(true) {
+    byte state = getState();
+    if (state == 0b001) break;
+    else if (state == 0b110) writeStatusReg(REG_FRX);
+    else if (state == 0b111) writeStatusReg(REG_FTX);
+    writeStatusReg(REG_RX);
+  //   switch (getState()) {
+  //     case 0b001:
+  //       break;
+  //     case 0b110:
+  //       writeStatusReg(REG_FRX);
+  //       break;
+  //     case 0b111:
+  //       writeStatusReg(REG_FTX);
+  //       break;
+  //   }
+  //   writeStatusReg(REG_RX);
+  //   break;
+  }
+};
+void Radio::setTXState(){
+  writeStatusReg(REG_TX);
+  while(getState() != 2);
+};
+void Radio::setIDLEState(){
+  writeStatusReg(REG_IDLE);
+  while(getState() != 0);
+};
+byte Radio::getState(){
+  // byte oldState = writeStatusReg(REG_NOP);
+  // while(true) {
+  //   byte state = writeStatusReg(REG_NOP);
+  //   if (state == oldState) {
+  //     return (state>>4)&0b00111;
+  //     Serial.print("State: ");
+  //     Serial.println(state);
+  //   }
+  //   oldState = state;
+  // }
+  return writeStatusReg(REG_NOP);
+};
 
 uint8_t Radio::readReg(byte addr){
   start();
@@ -200,11 +273,15 @@ void Radio::writeReg(byte addr, byte val){
     spi.transfer(val);
   stop();
 };
-void Radio::writeStatusReg(byte addr){
+byte Radio::writeStatusReg(byte addr){
   start();
-    // spi.transfer(WRITE | (addr & 0b111111));
-    spi.transfer(addr);
+  // spi.transfer(WRITE | (addr & 0b111111));
+  uint8_t status = spi.transfer(addr);
+  state = (status >> 4) & 0b00111;
+  Serial.print("State: ");
+  Serial.println(state);
   stop();
+  return status;
 };
 void Radio::writeRegField(byte addr, byte val, byte hi, byte lo){
   uint8_t mask = ((1 << (hi - lo +1)) -1) << lo;

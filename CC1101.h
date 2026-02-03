@@ -65,6 +65,12 @@
 #define REG_RXBYTES        0x3b
 #define REG_RCCTRL0_STATUS 0x3d
 
+enum State {
+  STATE_RX = 0x34,
+  STATE_TX = 0x35,
+  STATE_IDLE = 0x36,
+};
+
 enum Modulation {
   FSK2    = 0,
   GFSK    = 1,
@@ -129,6 +135,7 @@ class Radio {
     double freq, drate;
     int8_t power;
     uint8_t buffLen;
+    uint8_t state;
 
     void start();
     void stop();
@@ -142,6 +149,10 @@ class Radio {
     void setFreq(double freq);
     void setDrate(double drate);
     void setPower(int8_t power);
+    void setRXState();
+    void setTXState();
+    void setIDLEState();
+    byte getState();
 
     uint8_t readReg(byte addr);
     uint8_t readStatusReg(byte addr);
@@ -149,7 +160,7 @@ class Radio {
     void readRegBurst(byte addr, uint8_t *buff, size_t size);
 
     void writeReg(byte addr, byte val);
-    void writeStatusReg(byte addr);
+    byte writeStatusReg(byte addr);
     void writeRegField(byte addr, byte val, byte hi, byte lo);
     void writeRegBurst(byte addr, uint8_t *buff, size_t size);
 };
