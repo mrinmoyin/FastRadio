@@ -34,19 +34,31 @@ bool Radio::read(uint8_t *buff){
   uint8_t rxBytes = readStatusReg(REG_RXBYTES);
   uint8_t bytesInFifo = readReg(REG_FIFO);
 
-  writeStatusReg(REG_FRX);
-  writeStatusReg(REG_IDLE);
-  writeStatusReg(REG_RX);
-  while (state != 1);
+  // writeStatusReg(REG_FRX);
+  // writeStatusReg(REG_IDLE);
+  // writeStatusReg(REG_RX);
+  // while (state != 1);
 
   // do {
   //   bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
   // } while (bytesInFifo < 4);
+
+  setIDLEState();
+  flushRxBuffer();
+  setRXState();
   
   readRegBurst(REG_FIFO, buff, buffLen);
 
-  writeStatusReg(REG_FRX);
-  writeStatusReg(REG_RX);
+  while (getState() != 0) {
+    delayMicroseconds(50);
+    yield();
+  }
+
+  rssi = readReg(REG_FIFO);
+  lqi = readReg(REG_FIFO) & 0x7f;
+  flushRxBuffer();
+  // writeStatusReg(REG_FRX);
+  // writeStatusReg(REG_RX);
   return true;
 };
 bool Radio::write(uint8_t *buff){
@@ -68,7 +80,10 @@ bool Radio::write(uint8_t *buff){
   writeReg(REG_FIFO, buffLen);
   writeRegBurst(REG_FIFO, buff, buffLen);
   // while(readStatusReg(REG_NOP) > 0);
-  while (getState() != 0);
+  while (getState() != 0){
+    delayMicroseconds(50);
+    yield();
+  };
   setIDLEState();
   flushTxBuffer();
   setRXState();
@@ -192,6 +207,8 @@ void Radio::setRXState(){
     else if (state == 0b110) writeStatusReg(REG_FRX);
     else if (state == 0b111) writeStatusReg(REG_FTX);
     writeStatusReg(REG_RX);
+    delayMicroseconds(50);
+    yield();
   //   switch (getState()) {
   //     case 0b001:
   //       break;
@@ -225,7 +242,8 @@ byte Radio::getState(){
   //   }
   //   oldState = state;
   // }
-  return writeStatusReg(REG_NOP);
+  writeStatusReg(REG_NOP);
+  return state;
 };
 
 uint8_t Radio::readReg(byte addr){
@@ -278,8 +296,8 @@ byte Radio::writeStatusReg(byte addr){
   // spi.transfer(WRITE | (addr & 0b111111));
   uint8_t status = spi.transfer(addr);
   state = (status >> 4) & 0b00111;
-  Serial.print("State: ");
-  Serial.println(state);
+  // Serial.print("State: ");
+  // Serial.println(state);
   stop();
   return status;
 };
