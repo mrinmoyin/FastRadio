@@ -140,23 +140,23 @@ class Radio {
     void start();
     void stop();
 
-    void hardReset();
-    void flushRxBuffer();
-    void flushTxBuffer();
+    void reset();
+    void flushRxBuff();
+    void flushTxBuff();
 
     void setRegs();
     void setMod(Modulation mod);
     void setFreq(double freq);
     void setDrate(double drate);
     void setPower(int8_t power);
-    void setRXState();
-    void setTXState();
-    void setIDLEState();
+    void setRxState();
+    void setTxState();
+    void setIdleState();
     byte getState();
 
-    uint8_t readReg(byte addr);
-    uint8_t readStatusReg(byte addr);
-    uint8_t readRegField(byte addr, byte hi, byte lo);
+    byte readReg(byte addr);
+    byte readStatusReg(byte addr);
+    byte readRegField(byte addr, byte hi, byte lo);
     void readRegBurst(byte addr, uint8_t *buff, size_t size);
 
     void writeReg(byte addr, byte val);
