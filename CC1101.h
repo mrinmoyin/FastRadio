@@ -12,6 +12,15 @@
 #define FIFO_SIZE          64    /* 64 B */
 #define CRYSTAL_FREQ       26    /* 26 MHz */
 
+#define STATE_IDLE              0b000
+#define STATE_RX                0b001
+#define STATE_TX                0b010
+#define STATE_FSTXON            0b011
+#define STATE_CALIB             0b100
+#define STATE_SETTLING          0b101
+#define STATE_RXFIFO_OVERFLOW   0b110
+#define STATE_TXFIFO_UNDERFLOW  0b111
+
 #define READ               0x80
 #define WRITE              0x00
 #define READ_BURST         0xC0
@@ -65,29 +74,23 @@
 #define REG_RXBYTES        0x3b
 #define REG_RCCTRL0_STATUS 0x3d
 
-enum State {
-  STATE_RX = 0x34,
-  STATE_TX = 0x35,
-  STATE_IDLE = 0x36,
-};
-
 enum Modulation {
-  FSK2    = 0,
-  GFSK    = 1,
-  ASK_OOK = 3,
-  FSK4    = 4,
-  MSK     = 7
+  MOD_2FSK    = 0,
+  MOD_GFSK    = 1,
+  MOD_ASK_OOK = 3,
+  MOD_4FSK    = 4,
+  MOD_MSK     = 7
 };
 
 static const double drateRange[][2] = {
-  [FSK2]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
-  [GFSK]    = {  0.6, 250.0 },
+  [MOD_2FSK]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
+  [MOD_GFSK]    = {  0.6, 250.0 },
   [2]       = {  0.0, 0.0   },  /* gap */
-  [ASK_OOK] = {  0.6, 250.0 },
-  [FSK4]    = {  0.6, 300.0 },
+  [MOD_ASK_OOK] = {  0.6, 250.0 },
+  [MOD_4FSK]    = {  0.6, 300.0 },
   [5]       = {  0.0, 0.0   },  /* gap */
   [6]       = {  0.0, 0.0   },  /* gap */
-  [MSK]     = { 26.0, 500.0 }
+  [MOD_MSK]     = { 26.0, 500.0 }
 };
 
 static const uint8_t powerRange[][8] = {
@@ -98,9 +101,9 @@ static const uint8_t powerRange[][8] = {
 };
 
 class Radio {
-  public
-    : Radio(
-        Modulation mod = FSK2,
+  public:
+    Radio(
+        Modulation mod = MOD_2FSK,
         double freq = 433.0,
         double drate = 4.0,
         int8_t sck = SCK,
@@ -119,6 +122,14 @@ class Radio {
       spi(spi),
       spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE),
       buffLen(4) {};
+
+    Radio(
+        int8_t sck,
+        int8_t miso,
+        int8_t mosi,
+        int8_t ss,
+        SPIClass &spi = SPI
+        ): Radio(MOD_2FSK, 433.0, 4.0, sck, miso, mosi, ss, spi) {};
 
   uint8_t partnum, version, rssi, lqi;
 
@@ -152,7 +163,7 @@ class Radio {
     void setRxState();
     void setTxState();
     void setIdleState();
-    byte getState();
+    void updateState();
 
     byte readReg(byte addr);
     byte readStatusReg(byte addr);
