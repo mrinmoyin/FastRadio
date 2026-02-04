@@ -201,14 +201,21 @@ void Radio::setPower(int8_t drate){
   }
 };
 void Radio::setRXState(){
-  while(true) {
-    byte state = getState();
-    if (state == 0b001) break;
-    else if (state == 0b110) writeStatusReg(REG_FRX);
+  while(state != 0b001) {
+    if (state == 0b110) writeStatusReg(REG_FRX);
     else if (state == 0b111) writeStatusReg(REG_FTX);
     writeStatusReg(REG_RX);
     delayMicroseconds(50);
     yield();
+
+    // byte state = getState();
+    // if (state == 0b001) break;
+    // else if (state == 0b110) writeStatusReg(REG_FRX);
+    // else if (state == 0b111) writeStatusReg(REG_FTX);
+    // writeStatusReg(REG_RX);
+    // delayMicroseconds(50);
+    // yield();
+
   //   switch (getState()) {
   //     case 0b001:
   //       break;
@@ -224,12 +231,18 @@ void Radio::setRXState(){
   }
 };
 void Radio::setTXState(){
-  writeStatusReg(REG_TX);
-  while(getState() != 2);
+  while(state != 2) {
+    writeStatusReg(REG_TX);
+    delayMicroseconds(50);
+    yield();
+  }
 };
 void Radio::setIDLEState(){
-  writeStatusReg(REG_IDLE);
-  while(getState() != 0);
+  while(state != 0) {
+    writeStatusReg(REG_IDLE);
+    delayMicroseconds(50);
+    yield();
+  }
 };
 byte Radio::getState(){
   // byte oldState = writeStatusReg(REG_NOP);
