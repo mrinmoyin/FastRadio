@@ -26,26 +26,32 @@ bool Radio::begin() {
   setFreq(freq);
   setDrate(drate);
   setPower(power);
-  setAddr(addr);
+  // setAddr(addr);
 
   return true;
 }
 
 bool Radio::read(uint8_t *buff){
+  uint8_t rxBytes = readStatusReg(REG_RXBYTES);
+  uint8_t bytesInFifo = readReg(REG_FIFO);
+  Serial.print("REG_RXBYTES: " );
+  Serial.println(rxBytes);
+  Serial.print("BytesInFifo: " );
+  Serial.println(bytesInFifo);
+  // uint8_t rxBytes, bytesInFifo;
   // // uint8_t bytesInFifo = readReg(REG_FIFO) & 0x7F;
-  // uint8_t rxBytes = readStatusReg(REG_RXBYTES);
-  // uint8_t bytesInFifo;
 
   // do {
-  //   bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
-  //   delayMicroseconds(50);
-  //   yield();
-  // } while (bytesInFifo < (buffLen + 3));
-
-  // Serial.print("RxBytes: "); 
-  // Serial.print(rxBytes); 
-  // Serial.print(" BytesInRXFifo: "); 
-  // Serial.println(bytesInFifo); 
+  //   rxBytes = readStatusReg(REG_RXBYTES);
+  //   // rxBytes = readRegField(REG_RXBYTES, 6, 0);
+  // //   bytesInFifo = readReg(REG_FIFO);
+  // //   delayMicroseconds(50);
+  // //   yield();
+  //   Serial.print("RxBytes: ");
+  //   Serial.println(rxBytes);
+  //   // Serial.print("BytesInRxFifo: ");
+  //   // Serial.println(bytesInFifo);
+  //  } while (rxBytes != 0);
 
   // writeStatusReg(REG_FRX);
   // writeStatusReg(REG_IDLE);
@@ -55,27 +61,39 @@ bool Radio::read(uint8_t *buff){
   setIdleState();
   flushRxBuff();
   setRxState();
+
+  uint8_t size = readReg(REG_FIFO);
+  readRegBurst(REG_FIFO, buff, buffLen);
   
-  // uint8_t size = readReg(REG_FIFO);
-  // // readRegBurst(REG_FIFO, buff, buffLen);
+  // uint8_t bytesInFifo = readReg(REG_FIFO);
+  // Serial.print("BytesInRXFifo: "); 
+  // Serial.println(bytesInFifo); 
   // readRegBurst(REG_FIFO, buff, buffLen);
-  
-  // if(bytesInFifo > 0) {
-    uint8_t status[2];
-    uint8_t size = readReg(REG_FIFO);
-    // readRegBurst(REG_FIFO, buff, buffLen);
-    readRegBurst(REG_FIFO, buff, buffLen);
-  // }
 
   while (state != STATE_IDLE) {
     updateState();
     delayMicroseconds(50);
     yield();
   }
+  rssi = readReg(REG_FIFO);
+  lqi = readReg(REG_FIFO) & 0x7f;
 
-    readRegBurst(REG_FIFO, status, 2);
-    rssi = status[0] >= 128 ? ((status[0] - 256) / 2) - RSSI_OFFSET : (status[0] / 2) - RSSI_OFFSET;
-    lqi = status[1] & 0x7f;
+  // uint8_t data[7];
+  // readRegBurst(REG_FIFO, data, 7);
+  // Serial.print("Data recieved: [");
+  // for (int i = 0; i < 7; i++) {
+  //   if (i != 0) Serial.print(", ");
+  //   Serial.print(data[i]);
+  // }
+  // Serial.println("]");
+
+  // uint8_t rssi_raw = readReg(REG_FIFO);
+  // rssi = rssi_raw >= 128 ? ((rssi_raw - 256) / 2) - RSSI_OFFSET : (rssi_raw / 2) - RSSI_OFFSET;
+  // lqi = readReg(REG_FIFO) & 0x7f;
+
+  // readRegBurst(REG_FIFO, status, 2);
+  // rssi = status[0] >= 128 ? ((status[0] - 256) / 2) - RSSI_OFFSET : (status[0] / 2) - RSSI_OFFSET;
+  // lqi = status[1] & 0x7f;
 
   flushRxBuff();
   setRxState();
@@ -84,15 +102,16 @@ bool Radio::read(uint8_t *buff){
   return true;
 };
 bool Radio::write(uint8_t *buff){
-  Serial.println("Radio.write");
-  uint8_t txBytes = readStatusReg(REG_TXBYTES);
+  // uint8_t txBytes = readStatusReg(REG_TXBYTES);
+  Serial.print("REG_TXBYTES: " );
+  Serial.println(readStatusReg(REG_TXBYTES));
 
   if(state != STATE_RX) {
     setIdleState();
-    flushTxBuff();
     flushRxBuff();
     setRxState();
   }
+  flushTxBuff();
   setTxState();
 
   if(state == STATE_RX) {
@@ -101,7 +120,6 @@ bool Radio::write(uint8_t *buff){
   // writeReg(REG_FIFO, FIFO_SIZE);
   writeReg(REG_FIFO, buffLen);
   writeRegBurst(REG_FIFO, buff, buffLen);
-  // while(readStatusReg(REG_NOP) > 0);
   while (state != STATE_IDLE){
     updateState();
     delayMicroseconds(50);
@@ -149,7 +167,7 @@ void Radio::flushTxBuff(){
 
 void Radio::setRegs(){
   /* Automatically calibrate when going from IDLE to RX or TX. */
-  // writeRegField(REG_MCSM0, 1, 5, 4);
+  writeRegField(REG_MCSM0, 1, 5, 4);
 
   /* Enable append status */
   writeRegField(REG_PKTCTRL1, 1, 2, 2);
@@ -266,10 +284,6 @@ byte Radio::readReg(byte addr) {
   uint8_t data = spi.transfer(WRITE);
   stop();
 
-  Serial.print("readReg ");
-  Serial.print(String(addr));
-  Serial.print(" : ");
-  Serial.println(data);
   return data;
 };
 byte Radio::readStatusReg(byte addr){
@@ -278,10 +292,6 @@ byte Radio::readStatusReg(byte addr){
   uint8_t data = spi.transfer(WRITE);
   stop();
 
-  Serial.print("readStatusReg ");
-  Serial.print(addr);
-  Serial.print(" : ");
-  Serial.println(data);
   return data;
 };
 byte Radio::readRegField(byte addr, byte hi, byte lo){
