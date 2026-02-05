@@ -15,11 +15,13 @@
 #define STATE_IDLE              0b000
 #define STATE_RX                0b001
 #define STATE_TX                0b010
-#define STATE_FSTXON            0b011
-#define STATE_CALIB             0b100
-#define STATE_SETTLING          0b101
-#define STATE_RXFIFO_OVERFLOW   0b110
-#define STATE_TXFIFO_UNDERFLOW  0b111
+// #define STATE_FSTXON            0b011
+// #define STATE_CALIB             0b100
+// #define STATE_SETTLING          0b101
+// #define STATE_RXFIFO_OVERFLOW   0b110
+// #define STATE_TXFIFO_UNDERFLOW  0b111
+
+#define RSSI_OFFSET        74
 
 #define READ               0x80
 #define WRITE              0x00
@@ -106,6 +108,7 @@ class Radio {
         Modulation mod = MOD_2FSK,
         double freq = 433.0,
         double drate = 4.0,
+        byte addr = NULL,
         int8_t sck = SCK,
         int8_t miso = MISO,
         int8_t mosi = MOSI,
@@ -115,6 +118,7 @@ class Radio {
       mod(mod),
       freq(freq),
       drate(drate),
+      addr(addr),
       sck(sck),
       miso(miso),
       mosi(mosi),
@@ -129,7 +133,7 @@ class Radio {
         int8_t mosi,
         int8_t ss,
         SPIClass &spi = SPI
-        ): Radio(MOD_2FSK, 433.0, 4.0, sck, miso, mosi, ss, spi) {};
+        ): Radio(MOD_2FSK, 433.0, 4.0, NULL, sck, miso, mosi, ss, spi) {};
 
   uint8_t partnum, version, rssi, lqi;
 
@@ -147,6 +151,7 @@ class Radio {
     int8_t power;
     uint8_t buffLen;
     uint8_t state;
+    byte addr;
 
     void start();
     void stop();
@@ -160,6 +165,7 @@ class Radio {
     void setFreq(double freq);
     void setDrate(double drate);
     void setPower(int8_t power);
+    void setAddr(byte addr);
     void setRxState();
     void setTxState();
     void setIdleState();

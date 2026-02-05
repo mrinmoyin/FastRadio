@@ -26,30 +26,46 @@ bool Radio::begin() {
   setFreq(freq);
   setDrate(drate);
   setPower(power);
+  setAddr(addr);
 
   return true;
 }
 
 bool Radio::read(uint8_t *buff){
-  uint8_t rxBytes = readStatusReg(REG_RXBYTES);
-  uint8_t bytesInFifo = readReg(REG_FIFO);
+  // // uint8_t bytesInFifo = readReg(REG_FIFO) & 0x7F;
+  // uint8_t rxBytes = readStatusReg(REG_RXBYTES);
+  // uint8_t bytesInFifo;
+
+  // do {
+  //   bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
+  //   delayMicroseconds(50);
+  //   yield();
+  // } while (bytesInFifo < (buffLen + 3));
+
+  // Serial.print("RxBytes: "); 
+  // Serial.print(rxBytes); 
+  // Serial.print(" BytesInRXFifo: "); 
+  // Serial.println(bytesInFifo); 
 
   // writeStatusReg(REG_FRX);
   // writeStatusReg(REG_IDLE);
   // writeStatusReg(REG_RX);
   // while (state != 1);
 
-  // do {
-  //   bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
-  // } while (bytesInFifo < 4);
-
   setIdleState();
   flushRxBuff();
   setRxState();
   
-  uint8_t size = readReg(REG_FIFO);
+  // uint8_t size = readReg(REG_FIFO);
+  // // readRegBurst(REG_FIFO, buff, buffLen);
   // readRegBurst(REG_FIFO, buff, buffLen);
-  readRegBurst(REG_FIFO, buff, buffLen);
+  
+  // if(bytesInFifo > 0) {
+    uint8_t status[2];
+    uint8_t size = readReg(REG_FIFO);
+    // readRegBurst(REG_FIFO, buff, buffLen);
+    readRegBurst(REG_FIFO, buff, buffLen);
+  // }
 
   while (state != STATE_IDLE) {
     updateState();
@@ -57,14 +73,18 @@ bool Radio::read(uint8_t *buff){
     yield();
   }
 
-  rssi = readReg(REG_FIFO);
-  lqi = readReg(REG_FIFO) & 0x7f;
+    readRegBurst(REG_FIFO, status, 2);
+    rssi = status[0] >= 128 ? ((status[0] - 256) / 2) - RSSI_OFFSET : (status[0] / 2) - RSSI_OFFSET;
+    lqi = status[1] & 0x7f;
+
   flushRxBuff();
+  setRxState();
   // writeStatusReg(REG_FRX);
   // writeStatusReg(REG_RX);
   return true;
 };
 bool Radio::write(uint8_t *buff){
+  Serial.println("Radio.write");
   uint8_t txBytes = readStatusReg(REG_TXBYTES);
 
   if(state != STATE_RX) {
@@ -78,7 +98,6 @@ bool Radio::write(uint8_t *buff){
   if(state == STATE_RX) {
     return false;
   }
-    
   // writeReg(REG_FIFO, FIFO_SIZE);
   writeReg(REG_FIFO, buffLen);
   writeRegBurst(REG_FIFO, buff, buffLen);
@@ -130,7 +149,7 @@ void Radio::flushTxBuff(){
 
 void Radio::setRegs(){
   /* Automatically calibrate when going from IDLE to RX or TX. */
-  writeRegField(REG_MCSM0, 1, 5, 4);
+  // writeRegField(REG_MCSM0, 1, 5, 4);
 
   /* Enable append status */
   writeRegField(REG_PKTCTRL1, 1, 2, 2);
@@ -204,10 +223,19 @@ void Radio::setPower(int8_t power){
     writeRegField(REG_FREND0, 0, 2, 0);
   }
 };
+void Radio::setAddr(byte addr) {
+  setIdleState();
+  if(addr != NULL) {
+    writeReg(REG_ADDR, addr);
+    writeRegField(REG_PKTCTRL1, 1, 1, 0);
+  } else {
+    writeRegField(REG_PKTCTRL1, 0, 1, 0);
+  }
+};
 void Radio::setRxState() {
   while(state != STATE_RX) {
-    if (state == STATE_RXFIFO_OVERFLOW) flushRxBuff();
-    else if (state == STATE_TXFIFO_UNDERFLOW) flushTxBuff();
+    // if (state == STATE_RXFIFO_OVERFLOW) flushRxBuff();
+    // else if (state == STATE_TXFIFO_UNDERFLOW) flushTxBuff();
     writeStatusReg(REG_RX);
     delayMicroseconds(50);
     yield();
