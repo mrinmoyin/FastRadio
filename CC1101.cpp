@@ -4,8 +4,8 @@ bool Radio::begin() {
   reset();
   delay(10);
 
-  partnum = readStatusReg(REG_PARTNUM);
-  version = readStatusReg(REG_VERSION);
+  // partnum = readStatusReg(REG_PARTNUM);
+  // version = readStatusReg(REG_VERSION);
 
   if(
       (
@@ -20,6 +20,10 @@ bool Radio::begin() {
           drate > drateRange[mod][1]
           )
     ) return false;
+  Serial.print("Partnum: ");
+  Serial.println(partnum);
+  Serial.print("Version: ");
+  Serial.println(version);
 
   setRegs();
   setMod(mod);
@@ -38,38 +42,18 @@ bool Radio::read(uint8_t *buff){
   Serial.println(rxBytes);
   Serial.print("BytesInFifo: " );
   Serial.println(bytesInFifo);
-  // uint8_t rxBytes, bytesInFifo;
-  // // uint8_t bytesInFifo = readReg(REG_FIFO) & 0x7F;
-
-  // do {
-  //   rxBytes = readStatusReg(REG_RXBYTES);
-  //   // rxBytes = readRegField(REG_RXBYTES, 6, 0);
-  // //   bytesInFifo = readReg(REG_FIFO);
-  // //   delayMicroseconds(50);
-  // //   yield();
-  //   Serial.print("RxBytes: ");
-  //   Serial.println(rxBytes);
-  //   // Serial.print("BytesInRxFifo: ");
-  //   // Serial.println(bytesInFifo);
-  //  } while (rxBytes != 0);
-
-  // writeStatusReg(REG_FRX);
-  // writeStatusReg(REG_IDLE);
-  // writeStatusReg(REG_RX);
-  // while (state != 1);
 
   setIdleState();
+  Serial.print("Set Idle State: " );
+  Serial.println(state);
   flushRxBuff();
   setRxState();
+  Serial.print("Set Rx State: " );
+  Serial.println(state);
 
   uint8_t size = readReg(REG_FIFO);
   readRegBurst(REG_FIFO, buff, buffLen);
   
-  // uint8_t bytesInFifo = readReg(REG_FIFO);
-  // Serial.print("BytesInRXFifo: "); 
-  // Serial.println(bytesInFifo); 
-  // readRegBurst(REG_FIFO, buff, buffLen);
-
   while (state != STATE_IDLE) {
     updateState();
     delayMicroseconds(50);
@@ -97,8 +81,6 @@ bool Radio::read(uint8_t *buff){
 
   flushRxBuff();
   setRxState();
-  // writeStatusReg(REG_FRX);
-  // writeStatusReg(REG_RX);
   return true;
 };
 bool Radio::write(uint8_t *buff){
@@ -148,11 +130,11 @@ void Radio::stop() {
 
 void Radio::reset() {
   digitalWrite(ss, HIGH);
-  delayMicroseconds(50);
+  delayMicroseconds(5);
   digitalWrite(ss, LOW);
-  delayMicroseconds(50);
+  delayMicroseconds(5);
   digitalWrite(ss, HIGH);
-  delayMicroseconds(50);
+  delayMicroseconds(40);
 
   start();
   spi.transfer(REG_RES);
@@ -166,14 +148,31 @@ void Radio::flushTxBuff(){
 };
 
 void Radio::setRegs(){
-  /* Automatically calibrate when going from IDLE to RX or TX. */
+  /* Enable automatic calibration when going from IDLE state */
   writeRegField(REG_MCSM0, 1, 5, 4);
 
   /* Enable append status */
   writeRegField(REG_PKTCTRL1, 1, 2, 2);
 
-  /* Disable data whitening. */
-  // setDataWhitening(false);
+  /* Disable variable packet length */
+  // writeRegField(REG_PKTCTRL0, 0, 1, 0);
+  // writeReg(REG_PKTLEN, buffLen);
+  /* Disable addr filtering */
+  // writeRegField(REG_PKTCTRL1, 0, 1, 0);
+  // /* Disable CRC */
+  // writeRegField(REG_PKTCTRL0, 0, 2, 2);
+  /* Disable DataWhitening */
+  // writeRegField(REG_PKTCTRL0, 0, 6, 6);
+  /* Disable manchester */
+  // writeRegField(REG_MDMCFG2, 0, 3, 3);
+  /* Disable FEC */
+  // writeRegField(REG_MDMCFG1, 0, 7, 7);
+  /* Disable preamble/sync */
+  // writeRegField(REG_MDMCFG2, 0, 2, 0);
+  /* Set sync word */
+  // writeRegField(REG_MDMCFG1, 0, 6, 4);
+  /* Set preamble length */
+  // writeRegField(REG_MDMCFG1, 0, 6, 4);
 };
 void Radio::setMod(Modulation mod){
   writeRegField(REG_MDMCFG2, (uint8_t)mod, 6, 4);
@@ -243,7 +242,7 @@ void Radio::setPower(int8_t power){
 };
 void Radio::setAddr(byte addr) {
   setIdleState();
-  if(addr != NULL) {
+  if(addr != -1) {
     writeReg(REG_ADDR, addr);
     writeRegField(REG_PKTCTRL1, 1, 1, 0);
   } else {
@@ -314,15 +313,12 @@ void Radio::writeReg(byte addr, byte val){
     spi.transfer(val);
   stop();
 };
-byte Radio::writeStatusReg(byte addr){
+void Radio::writeStatusReg(byte addr){
   start();
   // spi.transfer(WRITE | (addr & 0b111111));
   uint8_t status = spi.transfer(addr);
   state = (status >> 4) & 0b00111;
-  // Serial.print("State: ");
-  // Serial.println(state);
   stop();
-  return status;
 };
 void Radio::writeRegField(byte addr, byte val, byte hi, byte lo){
   uint8_t mask = ((1 << (hi - lo +1)) -1) << lo;

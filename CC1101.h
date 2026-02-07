@@ -22,6 +22,8 @@
 // #define STATE_TXFIFO_UNDERFLOW  0b111
 
 #define RSSI_OFFSET        74
+#define PKT_LEN_FIXED      0
+#define PKT_LEN_VARIABLE   1
 
 #define READ               0x80
 #define WRITE              0x00
@@ -87,11 +89,11 @@ enum Modulation {
 static const double drateRange[][2] = {
   [MOD_2FSK]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
   [MOD_GFSK]    = {  0.6, 250.0 },
-  [2]       = {  0.0, 0.0   },  /* gap */
+  [2]           = {  0.0, 0.0   },  /* gap */
   [MOD_ASK_OOK] = {  0.6, 250.0 },
   [MOD_4FSK]    = {  0.6, 300.0 },
-  [5]       = {  0.0, 0.0   },  /* gap */
-  [6]       = {  0.0, 0.0   },  /* gap */
+  [5]           = {  0.0, 0.0   },  /* gap */
+  [6]           = {  0.0, 0.0   },  /* gap */
   [MOD_MSK]     = { 26.0, 500.0 }
 };
 
@@ -108,7 +110,7 @@ class Radio {
         Modulation mod = MOD_2FSK,
         double freq = 433.0,
         double drate = 4.0,
-        byte addr = NULL,
+        byte addr = -1,
         int8_t sck = SCK,
         int8_t miso = MISO,
         int8_t mosi = MOSI,
@@ -133,9 +135,9 @@ class Radio {
         int8_t mosi,
         int8_t ss,
         SPIClass &spi = SPI
-        ): Radio(MOD_2FSK, 433.0, 4.0, NULL, sck, miso, mosi, ss, spi) {};
+        ): Radio(MOD_2FSK, 433.0, 4.0, -1, sck, miso, mosi, ss, spi) {};
 
-  uint8_t partnum, version, rssi, lqi;
+  uint8_t partnum = -1, version = -1, rssi, lqi;
 
   bool begin();
   bool read(uint8_t *buff);
@@ -177,7 +179,7 @@ class Radio {
     void readRegBurst(byte addr, uint8_t *buff, size_t size);
 
     void writeReg(byte addr, byte val);
-    byte writeStatusReg(byte addr);
+    void writeStatusReg(byte addr);
     void writeRegField(byte addr, byte val, byte hi, byte lo);
     void writeRegBurst(byte addr, uint8_t *buff, size_t size);
 };
