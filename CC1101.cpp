@@ -7,7 +7,7 @@ bool Radio::begin() {
   partnum = readStatusReg(REG_PARTNUM);
   version = readStatusReg(REG_VERSION);
 
-  if(!(partnum == PARTNUM && version == (VERSION || VERSION_LEGACY)) ||
+  if(!(partnum == PARTNUM || version == (VERSION || VERSION_LEGACY)) ||
       !((freq >= 300.0 && freq <= 348.0) ||
         (freq >= 387.0 && freq <= 464.0) ||
         (freq >= 779.0 && freq <= 928.0)) || 
@@ -61,12 +61,9 @@ bool Radio::write(uint8_t *buff){
   // writeReg(REG_FIFO, buffLen);
   writeRegBurst(REG_FIFO, buff, buffLen);
   delayMicroseconds(500);
+  Serial.print("bytesInFifo: ");
+  Serial.println(readStatusReg(REG_TXBYTES));
 
-  setTxState();
-  while (getState() != STATE_IDLE){
-    delayMicroseconds(50);
-    yield();
-  };
   // while (bytesInFifo < buffLen) {
   //  // bytesInFifo = readStatusReg(REG_TXBYTES);
   //   bytesInFifo = readRegField(REG_TXBYTES, 6, 0);
@@ -77,12 +74,12 @@ bool Radio::write(uint8_t *buff){
   //   yield();
   // };
 
-  // delayMicroseconds(500);
-  // setTxState();
-
-  // setIdleState();
-  // flushTxBuff();
-  // setRxState();
+  setTxState();
+  while (getState() != STATE_IDLE){
+    delayMicroseconds(50);
+    yield();
+  };
+  flushTxBuff();
   return true;
 };
 
