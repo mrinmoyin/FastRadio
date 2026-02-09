@@ -49,6 +49,7 @@ bool Radio::read(uint8_t *buff){
 
   flushRxBuff();
   setRxState();
+
   return true;
 };
 bool Radio::write(uint8_t *buff){
@@ -63,11 +64,12 @@ bool Radio::write(uint8_t *buff){
   uint8_t bytesInFifo = readStatusReg(REG_TXBYTES);
 
   setTxState();
+
   while (getState() != STATE_IDLE){
     delayMicroseconds(50);
     yield();
   };
-  flushTxBuff();
+
   return true;
 };
 
