@@ -12,14 +12,14 @@
 #define FIFO_SIZE          64    /* 64 B */
 #define CRYSTAL_FREQ       26    /* 26 MHz */
 
-#define STATE_IDLE              0b000
-#define STATE_RX                0b001
-#define STATE_TX                0b010
-#define STATE_FSTXON            0b011
-#define STATE_CALIB             0b100
-#define STATE_SETTLING          0b101
-#define STATE_RXFIFO_OVERFLOW   0b110
-#define STATE_TXFIFO_UNDERFLOW  0b111
+#define STATE_IDLE              0
+#define STATE_RX                1
+#define STATE_TX                2
+#define STATE_FSTXON            3
+#define STATE_CALIB             4
+#define STATE_SETTLING          5
+#define STATE_RXFIFO_OVERFLOW   6
+#define STATE_TXFIFO_UNDERFLOW  7
 
 #define RSSI_OFFSET        74
 #define PKT_LEN_FIXED      0
@@ -152,8 +152,8 @@ class Radio {
     double freq, drate;
     int8_t power;
     uint8_t buffLen;
-    uint8_t state;
     byte addr;
+    uint8_t state;
 
     void start();
     void stop();
@@ -171,7 +171,7 @@ class Radio {
     void setRxState();
     void setTxState();
     void setIdleState();
-    void updateState();
+    byte getState();
 
     byte readReg(byte addr);
     byte readStatusReg(byte addr);
