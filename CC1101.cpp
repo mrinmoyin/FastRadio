@@ -27,28 +27,53 @@ bool Radio::begin() {
 bool Radio::read(uint8_t *buff){
   uint8_t bytesInFifo;
 
-  writeReg(REG_ADDR, addr);
+  // writeReg(REG_ADDR, addr);
 
   setIdleState();
+  delayMicroseconds(500);
   flushRxBuff();
+  delayMicroseconds(500);
+  flushTxBuff();
+  delayMicroseconds(500);
+  Serial.print("flush State: ");
+  Serial.println(getState());
   setRxState();
+  delayMicroseconds(500);
+  Serial.print("rx State: ");
+  Serial.println(getState());
 
-  do {
-    // bytesInFifo = readStatusReg(REG_RXBYTES);
-    bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
+  // do {
+  //   bytesInFifo = readStatusReg(REG_RXBYTES);
+  //   // bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
+  //   delayMicroseconds(500);
+  //   yield();
+  //   Serial.print("bytesInFifo: ");
+  //   Serial.println(bytesInFifo);
+  // } while (bytesInFifo < buffLen);
+  while (readStatusReg(REG_RXBYTES) < buffLen) {
     delayMicroseconds(500);
     yield();
-  } while (bytesInFifo < buffLen);
+  }
 
+    Serial.print("write State: ");
+    Serial.println(getState());
   // uint8_t size = readReg(REG_FIFO);
   readRegBurst(REG_FIFO, buff, buffLen);
-    delayMicroseconds(500);
+  delayMicroseconds(500);
   
   // uint8_t rssi_raw = readReg(REG_FIFO);
   // rssi = rssi_raw >= 128 ? ((rssi_raw - 256) / 2) - RSSI_OFFSET : (rssi_raw / 2) - RSSI_OFFSET;
 
-  flushRxBuff();
+  while (getState() != STATE_IDLE){
+    delayMicroseconds(50);
+    yield();
+  };
+    Serial.print("idle State: ");
+    Serial.println(getState());
+
   setRxState();
+    Serial.print("end State: ");
+    Serial.println(getState());
 
   return true;
 };
@@ -214,10 +239,12 @@ void Radio::setAddr(byte addr) {
 void Radio::setRxState() {
   while(getState() != STATE_RX) {
     if (state == STATE_RXFIFO_OVERFLOW) flushRxBuff();
-    // else if (state == STATE_TXFIFO_UNDERFLOW) flushTxBuff();
+    else if (state == STATE_TXFIFO_UNDERFLOW) flushTxBuff();
     else if (state != (STATE_CALIB || STATE_SETTLING)) writeStatusReg(REG_RX);
     delayMicroseconds(50);
     yield();
+    Serial.print("setRxState: ");
+    Serial.println(state);
   }
 };
 void Radio::setTxState() {
