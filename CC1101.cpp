@@ -30,13 +30,8 @@ bool Radio::read(uint8_t *buff){
   // writeReg(REG_ADDR, addr);
 
   setIdleState();
-  delayMicroseconds(500);
   flushRxBuff();
-  delayMicroseconds(500);
-  flushTxBuff();
-  delayMicroseconds(500);
   setRxState();
-  delayMicroseconds(500);
 
   while (readStatusReg(REG_RXBYTES) < buffLen) {
     delayMicroseconds(500);
@@ -221,12 +216,9 @@ void Radio::setAddr(byte addr) {
 void Radio::setRxState() {
   while(getState() != STATE_RX) {
     if (state == STATE_RXFIFO_OVERFLOW) flushRxBuff();
-    else if (state == STATE_TXFIFO_UNDERFLOW) flushTxBuff();
     else if (state != (STATE_CALIB || STATE_SETTLING)) writeStatusReg(REG_RX);
     delayMicroseconds(50);
     yield();
-    Serial.print("setRxState: ");
-    Serial.println(state);
   }
 };
 void Radio::setTxState() {

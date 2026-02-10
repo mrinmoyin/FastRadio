@@ -5,25 +5,14 @@
 #include <Arduino.h>
 #include <SPI.h>
 
-#define SPI_MAX_FREQ       6500000    /* 6.5 MHz */
+#define SPI_MAX_FREQ       6500000  
 #define SPI_DATA_ORDER     MSBFIRST
-#define SPI_DATA_MODE      SPI_MODE0  /* clk low, leading edge */
+#define SPI_DATA_MODE      SPI_MODE0  
 
-#define FIFO_SIZE          64    /* 64 B */
-#define CRYSTAL_FREQ       26    /* 26 MHz */
-
-#define STATE_IDLE              0
-#define STATE_RX                1
-#define STATE_TX                2
-#define STATE_FSTXON            3
-#define STATE_CALIB             4
-#define STATE_SETTLING          5
-#define STATE_RXFIFO_OVERFLOW   6
-#define STATE_TXFIFO_UNDERFLOW  7
+#define FIFO_SIZE          64    
+#define CRYSTAL_FREQ       26   
 
 #define RSSI_OFFSET        74
-#define PKT_LEN_FIXED      0
-#define PKT_LEN_VARIABLE   1
 
 #define READ               0x80
 #define WRITE              0x00
@@ -77,6 +66,17 @@
 #define REG_TXBYTES        0x3a
 #define REG_RXBYTES        0x3b
 #define REG_RCCTRL0_STATUS 0x3d
+
+enum State {
+  STATE_IDLE              = 0,
+  STATE_RX                = 1,
+  STATE_TX                = 2,
+  STATE_FSTXON            = 3,
+  STATE_CALIB             = 4,
+  STATE_SETTLING          = 5,
+  STATE_RXFIFO_OVERFLOW   = 6,
+  STATE_TXFIFO_UNDERFLOW  = 7,
+};
 
 enum Modulation {
   MOD_2FSK    = 0,
