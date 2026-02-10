@@ -7,7 +7,7 @@ bool Radio::begin() {
   partnum = readStatusReg(REG_PARTNUM);
   version = readStatusReg(REG_VERSION);
 
-  if(partnum != PARTNUM || version != (VERSION || VERSION_LEGACY) ||
+  if(!(partnum == PARTNUM && version == VERSION) ||
       !((freq >= 300.0 && freq <= 348.0) ||
         (freq >= 387.0 && freq <= 464.0) ||
         (freq >= 779.0 && freq <= 928.0)) || 
@@ -35,28 +35,14 @@ bool Radio::read(uint8_t *buff){
   delayMicroseconds(500);
   flushTxBuff();
   delayMicroseconds(500);
-  Serial.print("flush State: ");
-  Serial.println(getState());
   setRxState();
   delayMicroseconds(500);
-  Serial.print("rx State: ");
-  Serial.println(getState());
 
-  // do {
-  //   bytesInFifo = readStatusReg(REG_RXBYTES);
-  //   // bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
-  //   delayMicroseconds(500);
-  //   yield();
-  //   Serial.print("bytesInFifo: ");
-  //   Serial.println(bytesInFifo);
-  // } while (bytesInFifo < buffLen);
   while (readStatusReg(REG_RXBYTES) < buffLen) {
     delayMicroseconds(500);
     yield();
   }
 
-    Serial.print("write State: ");
-    Serial.println(getState());
   // uint8_t size = readReg(REG_FIFO);
   readRegBurst(REG_FIFO, buff, buffLen);
   delayMicroseconds(500);
@@ -68,12 +54,8 @@ bool Radio::read(uint8_t *buff){
     delayMicroseconds(50);
     yield();
   };
-    Serial.print("idle State: ");
-    Serial.println(getState());
 
   setRxState();
-    Serial.print("end State: ");
-    Serial.println(getState());
 
   return true;
 };
