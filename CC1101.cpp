@@ -8,18 +8,25 @@ bool Radio::begin() {
   version = readStatusReg(REG_VERSION);
 
   if(!(partnum == PARTNUM && version == VERSION) ||
-      !((freq >= 300.0 && freq <= 348.0) ||
-        (freq >= 387.0 && freq <= 464.0) ||
-        (freq >= 779.0 && freq <= 928.0)) || 
-      !(drate > drateRange[mod][0] || drate < drateRange[mod][1])
+      !((freq > freqRange[0][0] && freq < freqRange[0][1]) || 
+        (freq > freqRange[1][0] && freq < freqRange[1][1]) || 
+        (freq > freqRange[2][0] && freq < freqRange[2][1])) ||
+      !(drate > drateRange[mod][0] && drate < drateRange[mod][1])
     ) return false;
 
-  setRegs();
+  setAddr(addr);
+  setCRC(isCRC);
+  setFEC(isFEC);
+  setAutoCalib(isAutoCalib);
+  setManchester(isManchester);
+  setAppendStatus(isAppendStatus);
+  setDataWhitening(isDataWhitening);
+  setVariablePktLen(isVariablePktLen);
+
   setMod(mod);
   setFreq(freq);
   setDrate(drate);
   setPower(power);
-  setAddr(addr);
 
   return true;
 }
@@ -27,29 +34,24 @@ bool Radio::begin() {
 bool Radio::read(uint8_t *buff){
   uint8_t bytesInFifo;
 
-  // writeReg(REG_ADDR, addr);
-
   setIdleState();
   flushRxBuff();
   setRxState();
 
-  while (readStatusReg(REG_RXBYTES) < buffLen) {
-    delayMicroseconds(500);
+  while (readStatusReg(REG_RXBYTES) < pktLen) {
+    delayMicroseconds(50);
     yield();
   }
 
   // uint8_t size = readReg(REG_FIFO);
-  readRegBurst(REG_FIFO, buff, buffLen);
-  delayMicroseconds(500);
+  readRegBurst(REG_FIFO, buff, pktLen);
   
-  // uint8_t rssi_raw = readReg(REG_FIFO);
-  // rssi = rssi_raw >= 128 ? ((rssi_raw - 256) / 2) - RSSI_OFFSET : (rssi_raw / 2) - RSSI_OFFSET;
-
   while (getState() != STATE_IDLE){
     delayMicroseconds(50);
     yield();
   };
 
+  flushRxBuff();
   setRxState();
 
   return true;
@@ -57,11 +59,9 @@ bool Radio::read(uint8_t *buff){
 bool Radio::write(uint8_t *buff){
   setIdleState();
   flushTxBuff();
-  delayMicroseconds(500);
 
-  // writeReg(REG_FIFO, buffLen);
-  writeRegBurst(REG_FIFO, buff, buffLen);
-  delayMicroseconds(500);
+  // writeReg(REG_FIFO, pktLen);
+  writeRegBurst(REG_FIFO, buff, pktLen);
 
   uint8_t bytesInFifo = readStatusReg(REG_TXBYTES);
 
@@ -71,6 +71,8 @@ bool Radio::write(uint8_t *buff){
     delayMicroseconds(50);
     yield();
   };
+
+  flushTxBuff();
 
   return true;
 };
@@ -111,32 +113,35 @@ void Radio::flushTxBuff(){
   writeStatusReg(REG_FTX);
 };
 
-void Radio::setRegs(){
-  /* Enable automatic calibration when going from IDLE state */
-  writeRegField(REG_MCSM0, 1, 5, 4);
-
-  /* Disable append status */
-  writeRegField(REG_PKTCTRL1, 0, 2, 2);
-
-  /* Disable variable packet length */
-  writeRegField(REG_PKTCTRL0, 0, 1, 0);
-  writeReg(REG_PKTLEN, buffLen);
-  /* Disable addr filtering */
-  writeRegField(REG_PKTCTRL1, 0, 1, 0);
-  // /* Disable CRC */
-  // writeRegField(REG_PKTCTRL0, 0, 2, 2);
-  /* Disable DataWhitening */
-  // writeRegField(REG_PKTCTRL0, 0, 6, 6);
-  /* Disable manchester */
-  // writeRegField(REG_MDMCFG2, 0, 3, 3);
-  /* Disable FEC */
-  // writeRegField(REG_MDMCFG1, 0, 7, 7);
-  /* Disable preamble/sync */
-  // writeRegField(REG_MDMCFG2, 0, 2, 0);
-  /* Set sync word */
-  // writeRegField(REG_MDMCFG1, 0, 6, 4);
-  /* Set preamble length */
-  // writeRegField(REG_MDMCFG1, 0, 6, 4);
+void Radio::setCRC(bool en) {
+  writeRegField(REG_PKTCTRL0, (byte)en, 2, 2);
+};
+void Radio::setFEC(bool en) {
+  writeRegField(REG_MDMCFG1, (byte)en, 7, 7);
+};
+void Radio::setAddr(byte addr) {
+  writeRegField(REG_PKTCTRL1, addr > 0 ? 1 : 0, 1, 0);
+  writeReg(REG_ADDR, addr);
+};
+void Radio::setPreamble(byte len) {
+  writeRegField(REG_MDMCFG2, len > 0 ? 1 : 0, 2, 0);
+  writeRegField(REG_MDMCFG1, len, 6, 4);
+};
+void Radio::setAutoCalib(bool en) {
+  writeRegField(REG_MCSM0, (byte)en, 5, 4);
+};
+void Radio::setManchester(bool en) {
+  writeRegField(REG_MDMCFG2, (byte)en, 3, 3);
+};
+void Radio::setAppendStatus(bool en) {
+  writeRegField(REG_PKTCTRL1, (byte)en, 2, 2);
+};
+void Radio::setDataWhitening(bool en) {
+  writeRegField(REG_PKTCTRL0, (byte)en, 6, 6);
+};
+void Radio::setVariablePktLen(bool en) {
+  writeRegField(REG_PKTCTRL0, (byte)en, 1, 0);
+  writeReg(REG_PKTLEN, pktLen);
 };
 void Radio::setMod(Modulation mod){
   writeRegField(REG_MDMCFG2, (uint8_t)mod, 6, 4);
@@ -202,15 +207,6 @@ void Radio::setPower(int8_t power){
   } else {
     writeReg(REG_PATABLE, powerRange[freqIdx][powerIdx]);
     writeRegField(REG_FREND0, 0, 2, 0);
-  }
-};
-void Radio::setAddr(byte addr) {
-  setIdleState();
-  if(addr) {
-    writeReg(REG_ADDR, addr);
-    writeRegField(REG_PKTCTRL1, 1, 1, 0);
-  } else {
-    writeRegField(REG_PKTCTRL1, 0, 1, 0);
   }
 };
 void Radio::setRxState() {

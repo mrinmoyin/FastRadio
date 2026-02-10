@@ -86,56 +86,62 @@ enum Modulation {
   MOD_MSK     = 7
 };
 
-static const double drateRange[][2] = {
-  [MOD_2FSK]    = {  0.6, 500.0 },  /* 0.6 - 500 kBaud */
-  [MOD_GFSK]    = {  0.6, 250.0 },
-  [2]           = {  0.0, 0.0   },  /* gap */
-  [MOD_ASK_OOK] = {  0.6, 250.0 },
-  [MOD_4FSK]    = {  0.6, 300.0 },
-  [5]           = {  0.0, 0.0   },  /* gap */
-  [6]           = {  0.0, 0.0   },  /* gap */
-  [MOD_MSK]     = { 26.0, 500.0 }
+enum Frequency {
+  FREQ_315 = 0,
+  FREQ_433 = 1,
+  FREQ_868 = 2,
+};
+
+static const double freqRange[][2] = {
+  [FREQ_315] = { 300.0, 348.0 },
+  [FREQ_433] = { 387.0, 464.0 },
+  [FREQ_868] = { 779.0, 928.0 },
 };
 
 static const uint8_t powerRange[][8] = {
-  [0 /* 315 Mhz */ ] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
-  [1 /* 433 Mhz */ ] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
-  [2 /* 868 Mhz */ ] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
-  [3 /* 915 MHz */ ] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 }
+  [FREQ_315] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
+  [FREQ_433] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
+  [FREQ_868] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
+};
+
+static const double drateRange[][2] = {
+  [MOD_2FSK]    = {  0.6, 500.0 },
+  [MOD_GFSK]    = {  0.6, 250.0 },
+  [2]           = {  0.0, 0.0   }, 
+  [MOD_ASK_OOK] = {  0.6, 250.0 },
+  [MOD_4FSK]    = {  0.6, 300.0 },
+  [5]           = {  0.0, 0.0   },
+  [6]           = {  0.0, 0.0   },
+  [MOD_MSK]     = { 26.0, 500.0 }
 };
 
 class Radio {
   public:
     Radio(
-        Modulation mod = MOD_2FSK,
-        double freq = 433.0,
-        double drate = 4.0,
-        byte addr = 0,
+        int8_t ss = SS,
         int8_t sck = SCK,
         int8_t miso = MISO,
         int8_t mosi = MOSI,
-        int8_t ss = SS,
         SPIClass &spi = SPI
         ):
-      mod(mod),
-      freq(freq),
-      drate(drate),
-      addr(addr),
+      ss(ss),
       sck(sck),
       miso(miso),
       mosi(mosi),
-      ss(ss),
       spi(spi),
       spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE),
-      buffLen(4) {};
-
-    Radio(
-        int8_t sck,
-        int8_t miso,
-        int8_t mosi,
-        int8_t ss,
-        SPIClass &spi = SPI
-        ): Radio(MOD_2FSK, 433.0, 4.0, 0, sck, miso, mosi, ss, spi) {};
+      mod(MOD_2FSK),
+      freq(433.0),
+      drate(4.0),
+      addr(0),
+      pktLen(4),
+      isCRC(false), 
+      isFEC(false),
+      isAutoCalib(true),
+      isManchester(false),
+      isAppendStatus(false),
+      isDataWhitening(false),
+      isVariablePktLen(false) {};
 
   uint8_t partnum = -1, version, rssi, lqi;
 
@@ -151,9 +157,16 @@ class Radio {
     Modulation mod;
     double freq, drate;
     int8_t power;
-    uint8_t buffLen;
+    uint8_t pktLen;
     byte addr;
     uint8_t state;
+    bool isCRC, 
+         isFEC,
+         isAutoCalib,
+         isManchester,
+         isAppendStatus,
+         isDataWhitening,
+         isVariablePktLen;
 
     void start();
     void stop();
@@ -162,12 +175,19 @@ class Radio {
     void flushRxBuff();
     void flushTxBuff();
 
-    void setRegs();
+    void setCRC(bool en);
+    void setFEC(bool en);
+    void setAddr(byte addr);
+    void setPreamble(byte len);
+    void setAutoCalib(bool en);
+    void setManchester(bool en);
+    void setAppendStatus(bool en);
+    void setDataWhitening(bool en);
+    void setVariablePktLen(bool en);
     void setMod(Modulation mod);
     void setFreq(double freq);
     void setDrate(double drate);
     void setPower(int8_t power);
-    void setAddr(byte addr);
     void setRxState();
     void setTxState();
     void setIdleState();
