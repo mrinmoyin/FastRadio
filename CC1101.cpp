@@ -7,7 +7,7 @@ bool Radio::begin() {
   partnum = readStatusReg(REG_PARTNUM);
   version = readStatusReg(REG_VERSION);
 
-  if(!(partnum == PARTNUM || version == (VERSION || VERSION_LEGACY)) ||
+  if(partnum != PARTNUM || version != (VERSION || VERSION_LEGACY) ||
       !((freq >= 300.0 && freq <= 348.0) ||
         (freq >= 387.0 && freq <= 464.0) ||
         (freq >= 779.0 && freq <= 928.0)) || 
