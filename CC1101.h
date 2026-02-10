@@ -92,19 +92,13 @@ enum Frequency {
   FREQ_868 = 2,
 };
 
-static const double freqRange[][2] = {
+static const double freqTable[][2] = {
   [FREQ_315] = { 300.0, 348.0 },
   [FREQ_433] = { 387.0, 464.0 },
   [FREQ_868] = { 779.0, 928.0 },
 };
 
-static const uint8_t powerRange[][8] = {
-  [FREQ_315] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
-  [FREQ_433] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
-  [FREQ_868] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
-};
-
-static const double drateRange[][2] = {
+static const double drateTable[][2] = {
   [MOD_2FSK]    = {  0.6, 500.0 },
   [MOD_GFSK]    = {  0.6, 250.0 },
   [2]           = {  0.0, 0.0   }, 
@@ -113,6 +107,12 @@ static const double drateRange[][2] = {
   [5]           = {  0.0, 0.0   },
   [6]           = {  0.0, 0.0   },
   [MOD_MSK]     = { 26.0, 500.0 }
+};
+
+static const uint8_t pwrTable[][8] = {
+  [FREQ_315] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
+  [FREQ_433] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
+  [FREQ_868] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
 };
 
 class Radio {
@@ -133,17 +133,19 @@ class Radio {
       mod(MOD_2FSK),
       freq(433.0),
       drate(4.0),
+      pwr(0),
       addr(0),
       pktLen(4),
-      isCRC(false), 
-      isFEC(false),
+      isCRC(true), 
+      isFEC(true),
       isAutoCalib(true),
       isManchester(false),
-      isAppendStatus(false),
+      isAppendStatus(true),
       isDataWhitening(false),
       isVariablePktLen(false) {};
 
-  uint8_t partnum = -1, version, rssi, lqi;
+  int8_t partnum = -1, version = -1;
+  uint8_t rssi, lqi;
 
   bool begin();
   bool read(uint8_t *buff);
@@ -156,7 +158,7 @@ class Radio {
 
     Modulation mod;
     double freq, drate;
-    int8_t power;
+    int8_t pwr;
     uint8_t pktLen;
     byte addr;
     uint8_t state;
@@ -167,6 +169,7 @@ class Radio {
          isAppendStatus,
          isDataWhitening,
          isVariablePktLen;
+    int8_t freqIdx = -1, pwrIdx = -1;
 
     void start();
     void stop();
@@ -187,7 +190,7 @@ class Radio {
     void setMod(Modulation mod);
     void setFreq(double freq);
     void setDrate(double drate);
-    void setPower(int8_t power);
+    void setPwr(const uint8_t pwrTable[][8], uint8_t freqIdx, uint8_t pwrIdx);
     void setRxState();
     void setTxState();
     void setIdleState();

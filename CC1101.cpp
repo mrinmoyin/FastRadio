@@ -7,12 +7,35 @@ bool Radio::begin() {
   partnum = readStatusReg(REG_PARTNUM);
   version = readStatusReg(REG_VERSION);
 
+  if (freq >= freqTable[0][0] && freq <= freqTable[0][1]) {
+    freqIdx = 0;
+  } else if (freq >= freqTable[1][0] && freq <= freqTable[0][1]) {
+    freqIdx = 1;
+  } else if (freq >= freqTable[2][0] && freq <= freqTable[0][1]) {
+    freqIdx = 2;
+  }
+
+  if(pwr <= -30) {
+      pwrIdx = 0;
+  } else if (pwr <= -20) {
+      pwrIdx = 1;
+  } else if (pwr <= -15) {
+      pwrIdx = 2;
+  } else if (pwr <= -10) {
+      pwrIdx = 3;
+  } else if (pwr <= 0) {
+      pwrIdx = 4;
+  } else if (pwr <= 5) {
+      pwrIdx = 5;
+  } else if (pwr <= 7) {
+      pwrIdx = 6;
+  } else {
+      pwrIdx = 7;
+  }
+
   if(!(partnum == PARTNUM && version == VERSION) ||
-      !((freq > freqRange[0][0] && freq < freqRange[0][1]) || 
-        (freq > freqRange[1][0] && freq < freqRange[1][1]) || 
-        (freq > freqRange[2][0] && freq < freqRange[2][1])) ||
-      !(drate > drateRange[mod][0] && drate < drateRange[mod][1])
-    ) return false;
+      !(freq > freqTable[freqIdx][0] && freq < freqTable[freqIdx][1]) || 
+      !(drate > drateTable[mod][0] && drate < drateTable[mod][1])) return false;
 
   setAddr(addr);
   setCRC(isCRC);
@@ -26,32 +49,48 @@ bool Radio::begin() {
   setMod(mod);
   setFreq(freq);
   setDrate(drate);
-  setPower(power);
+  setPwr(pwrTable, freqIdx, pwrIdx);
 
   return true;
 }
 
-bool Radio::read(uint8_t *buff){
-  uint8_t bytesInFifo;
-
+ bool Radio::read(uint8_t *buff){
+  // uint8_t bytesInFifo = readStatusReg(REG_RXBYTES);
+  uint8_t bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
   setIdleState();
   flushRxBuff();
   setRxState();
 
-  while (readStatusReg(REG_RXBYTES) < pktLen) {
+  while (bytesInFifo < pktLen) {
+    bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
     delayMicroseconds(50);
     yield();
-  }
+  };
+    Serial.print("bytesInFifo: ");
+    Serial.println(bytesInFifo);
+    Serial.print("state: ");
+    Serial.println(getState());
 
   // uint8_t size = readReg(REG_FIFO);
   readRegBurst(REG_FIFO, buff, pktLen);
+  if(isAppendStatus) {
+    // if(rssi) rssi = (uint8_t*)readReg(REG_FIFO);
+    // byte rawLqi = readReg(REG_FIFO);
+    // if(lqi) {
+    //   lqi = (uint8_t*)(rawLqi & 0x7f);
+    // };
+    // if(!(rawLqi >> 7) & 1) return false; // CRC Mismatch
+  }
   
   while (getState() != STATE_IDLE){
+    flushRxBuff();
     delayMicroseconds(50);
     yield();
   };
 
-  flushRxBuff();
+  bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
+    Serial.print("bytesInFifo: ");
+    Serial.println(bytesInFifo);
   setRxState();
 
   return true;
@@ -145,7 +184,7 @@ void Radio::setVariablePktLen(bool en) {
 };
 void Radio::setMod(Modulation mod){
   writeRegField(REG_MDMCFG2, (uint8_t)mod, 6, 4);
-  // setPower(power);
+  // setPwr(power);
 };
 void Radio::setFreq(double freq){
   uint32_t f = ((freq * 65536.0) / CRYSTAL_FREQ); 
@@ -154,7 +193,7 @@ void Radio::setFreq(double freq){
   writeReg(REG_FREQ1, (f >> 8) & 0xff);
   writeReg(REG_FREQ2, (f >> 16) & 0xff);
 
-    // setPower(power);
+    // setPwr(power);
 };
 void Radio::setDrate(double drate){
   uint32_t xosc = CRYSTAL_FREQ * 1000;
@@ -169,43 +208,13 @@ void Radio::setDrate(double drate){
   writeRegField(REG_MDMCFG4, e, 3, 0);
   writeReg(REG_MDMCFG3, (uint8_t)m);
 };
-void Radio::setPower(int8_t power){
-  uint8_t powerIdx, freqIdx;
-
-  if(freq <= 348.0) {
-    freqIdx = 0;
-  } else if (freq <= 464.0) {
-    freqIdx = 1;
-  } else if (freq <= 891.5) {
-    freqIdx = 2;
-  } else {
-    freqIdx = 3;
-  }
-
-  if(power <= -30) {
-      powerIdx = 0;
-  } else if (power <= -20) {
-      powerIdx = 1;
-  } else if (power <= -15) {
-      powerIdx = 2;
-  } else if (power <= -10) {
-      powerIdx = 3;
-  } else if (power <= 0) {
-      powerIdx = 4;
-  } else if (power <= 5) {
-      powerIdx = 5;
-  } else if (power <= 7) {
-      powerIdx = 6;
-  } else {
-      powerIdx = 7;
-  }
-
+void Radio::setPwr(const uint8_t pwrTable[][8], uint8_t freqIdx, uint8_t pwrIdx){
   if(mod == MOD_ASK_OOK) {
-    uint8_t buff[2] = { WRITE, powerRange[freqIdx][powerIdx] };
+    uint8_t buff[2] = {WRITE, pwrTable[freqIdx][pwrIdx]};
     writeRegBurst(REG_PATABLE, buff, sizeof(buff));
     writeRegField(REG_FREND0, 1, 2, 0);
   } else {
-    writeReg(REG_PATABLE, powerRange[freqIdx][powerIdx]);
+    writeReg(REG_PATABLE, pwrTable[freqIdx][pwrIdx]);
     writeRegField(REG_FREND0, 0, 2, 0);
   }
 };
