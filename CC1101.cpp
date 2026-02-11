@@ -1,4 +1,5 @@
 #include "CC1101.h"
+#include "RadioUtils.h"
 
 bool Radio::begin() {
   reset();
@@ -7,35 +8,15 @@ bool Radio::begin() {
   partnum = readStatusReg(REG_PARTNUM);
   version = readStatusReg(REG_VERSION);
 
-  if (freq >= freqTable[0][0] && freq <= freqTable[0][1]) {
-    freqIdx = 0;
-  } else if (freq >= freqTable[1][0] && freq <= freqTable[0][1]) {
-    freqIdx = 1;
-  } else if (freq >= freqTable[2][0] && freq <= freqTable[0][1]) {
-    freqIdx = 2;
-  }
+  freqIdx = getFreqIdx(freq, freqTable);
+  pwrIdx = getPwrIdx(pwr);
 
-  if(pwr <= -30) {
-      pwrIdx = 0;
-  } else if (pwr <= -20) {
-      pwrIdx = 1;
-  } else if (pwr <= -15) {
-      pwrIdx = 2;
-  } else if (pwr <= -10) {
-      pwrIdx = 3;
-  } else if (pwr <= 0) {
-      pwrIdx = 4;
-  } else if (pwr <= 5) {
-      pwrIdx = 5;
-  } else if (pwr <= 7) {
-      pwrIdx = 6;
-  } else {
-      pwrIdx = 7;
-  }
-
+  Serial.println(freq);
+  Serial.println(freqIdx);
+  Serial.println(pwrIdx);
   if(!(partnum == PARTNUM && version == VERSION) ||
-      !(freq > freqTable[freqIdx][0] && freq < freqTable[freqIdx][1]) || 
-      !(drate > drateTable[mod][0] && drate < drateTable[mod][1])) return false;
+      !(drate > drateTable[mod][0] && drate < drateTable[mod][1]) || 
+      freqIdx == -1) return false;
 
   setAddr(addr);
   setCRC(isCRC);
@@ -45,11 +26,12 @@ bool Radio::begin() {
   setAppendStatus(isAppendStatus);
   setDataWhitening(isDataWhitening);
   setVariablePktLen(isVariablePktLen);
+  setSync(syncMode, syncWord, preambleLen);
 
   setMod(mod);
   setFreq(freq);
   setDrate(drate);
-  setPwr(pwrTable, freqIdx, pwrIdx);
+  setPwr(freqIdx, pwrIdx, pwrTable);
 
   return true;
 }
@@ -74,6 +56,10 @@ bool Radio::begin() {
   // uint8_t size = readReg(REG_FIFO);
   readRegBurst(REG_FIFO, buff, pktLen);
   if(isAppendStatus) {
+    uint8_t r = readReg(REG_FIFO);
+    if(r >= 128) rssi = ((rssi - 256) / 2) - RSSI_OFFSET;
+    else rssi = (rssi / 2) - RSSI_OFFSET;
+    lqi = readReg(REG_FIFO) & 0x7f;
     // if(rssi) rssi = (uint8_t*)readReg(REG_FIFO);
     // byte rawLqi = readReg(REG_FIFO);
     // if(lqi) {
@@ -162,9 +148,13 @@ void Radio::setAddr(byte addr) {
   writeRegField(REG_PKTCTRL1, addr > 0 ? 1 : 0, 1, 0);
   writeReg(REG_ADDR, addr);
 };
-void Radio::setPreamble(byte len) {
-  writeRegField(REG_MDMCFG2, len > 0 ? 1 : 0, 2, 0);
-  writeRegField(REG_MDMCFG1, len, 6, 4);
+void Radio::setSync(SyncMode syncMode, uint16_t syncWord, uint8_t preambleLen) {
+  writeRegField(REG_MDMCFG2, syncMode, 2, 0);
+
+  writeReg(REG_SYNC1, syncWord >> 8);
+  writeReg(REG_SYNC0, syncWord & 0xff);
+
+  writeRegField(REG_MDMCFG1, getPreambleIdx(preambleLen), 6, 4);
 };
 void Radio::setAutoCalib(bool en) {
   writeRegField(REG_MCSM0, (byte)en, 5, 4);
@@ -208,7 +198,7 @@ void Radio::setDrate(double drate){
   writeRegField(REG_MDMCFG4, e, 3, 0);
   writeReg(REG_MDMCFG3, (uint8_t)m);
 };
-void Radio::setPwr(const uint8_t pwrTable[][8], uint8_t freqIdx, uint8_t pwrIdx){
+void Radio::setPwr(uint8_t freqIdx, uint8_t pwrIdx, const uint8_t pwrTable[][8]){
   if(mod == MOD_ASK_OOK) {
     uint8_t buff[2] = {WRITE, pwrTable[freqIdx][pwrIdx]};
     writeRegBurst(REG_PATABLE, buff, sizeof(buff));

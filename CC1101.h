@@ -24,21 +24,21 @@
 #define VERSION_LEGACY     0x04
 
 /* Command strobes */
-#define REG_RES            0x30  /* Reset chip */
-#define REG_RX             0x34  /* Enable RX */
-#define REG_TX             0x35  /* Enable TX */
-#define REG_IDLE           0x36  /* Enable IDLE */
-#define REG_FRX            0x3a  /* Flush the RX FIFO buffer */
-#define REG_FTX            0x3b  /* Flush the TX FIFO buffer */
-#define REG_NOP            0x3d  /* No operation */
+#define REG_RES            0x30  
+#define REG_RX             0x34  
+#define REG_TX             0x35  
+#define REG_IDLE           0x36  
+#define REG_FRX            0x3a  
+#define REG_FTX            0x3b  
+#define REG_NOP            0x3d  
 
 /* Registers */
 #define REG_IOCFG0         0x02
-#define REG_SYNC1          0x04  /* Sync Word, High Byte */
-#define REG_SYNC0          0x05  /* Sync Word, Low Byte */
+#define REG_SYNC1          0x04  
+#define REG_SYNC0          0x05  
 #define REG_PKTLEN         0x06
 #define REG_PKTCTRL1       0x07
-#define REG_PKTCTRL0       0x08  /* Packet Automation Control */
+#define REG_PKTCTRL0       0x08  
 #define REG_ADDR           0x09
 
 #define REG_CHANNR         0x0a
@@ -46,7 +46,7 @@
 #define REG_FREQ1          0x0e
 #define REG_MDMCFG4        0x10
 #define REG_MDMCFG3        0x11
-#define REG_MDMCFG2        0x12  /* Modem Configuration */
+#define REG_MDMCFG2        0x12  
 #define REG_MDMCFG1        0x13
 #define REG_MDMCFG0        0x14
 #define REG_DEVIATN        0x15
@@ -55,7 +55,7 @@
 #define REG_MCSM2          0x16
 #define REG_MCSM1          0x17
 #define REG_MCSM0          0x18
-#define REG_FREND0         0x22  /* Front End TX Configuration */
+#define REG_FREND0         0x22  
 
 #define REG_PATABLE        0x3e
 #define REG_FIFO           0x3f
@@ -90,6 +90,17 @@ enum Frequency {
   FREQ_315 = 0,
   FREQ_433 = 1,
   FREQ_868 = 2,
+};
+
+enum SyncMode {
+  SYNC_MODE_NO_PREAMBLE    = 0,  /* No preamble/sync */
+  SYNC_MODE_15_16          = 1,  /* 15/16 sync word bits detected */
+  SYNC_MODE_16_16          = 2,  /* 16/16 sync word bits detected */
+  SYNC_MODE_30_32          = 3,  /* 30/32 sync word bits detected */
+  SYNC_MODE_NO_PREAMBLE_CS = 4,  /* No preamble/sync, CS above threshold */
+  SYNC_MODE_15_16_CS       = 5,  /* 15/16 + carrier-sense above threshold */
+  SYNC_MODE_16_16_CS       = 6,  /* 16/16 + carrier-sense above threshold */
+  SYNC_MODE_30_32_CS       = 7,  /* 30/32 + carrier-sense above threshold */
 };
 
 static const double freqTable[][2] = {
@@ -130,18 +141,21 @@ class Radio {
       mosi(mosi),
       spi(spi),
       spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE),
-      mod(MOD_2FSK),
-      freq(433.0),
+      mod(MOD_ASK_OOK),
+      syncMode(SYNC_MODE_16_16),
+      freq(433.8),
       drate(4.0),
       pwr(0),
       addr(0),
       pktLen(4),
+      preambleLen(16),
+      syncWord(0x1234),
       isCRC(true), 
-      isFEC(true),
+      isFEC(false),
       isAutoCalib(true),
       isManchester(false),
       isAppendStatus(true),
-      isDataWhitening(false),
+      isDataWhitening(true),
       isVariablePktLen(false) {};
 
   int8_t partnum = -1, version = -1;
@@ -157,9 +171,11 @@ class Radio {
     SPISettings spiSettings;
 
     Modulation mod;
+    SyncMode syncMode;
     double freq, drate;
     int8_t pwr;
-    uint8_t pktLen;
+    uint8_t pktLen, preambleLen;
+    uint16_t syncWord;
     byte addr;
     uint8_t state;
     bool isCRC, 
@@ -169,7 +185,7 @@ class Radio {
          isAppendStatus,
          isDataWhitening,
          isVariablePktLen;
-    int8_t freqIdx = -1, pwrIdx = -1;
+    int8_t freqIdx = -1, pwrIdx = -1, preambleIdx = -1;
 
     void start();
     void stop();
@@ -181,7 +197,7 @@ class Radio {
     void setCRC(bool en);
     void setFEC(bool en);
     void setAddr(byte addr);
-    void setPreamble(byte len);
+    void setSync(SyncMode syncMode, uint16_t syncWord, uint8_t preambleLen);
     void setAutoCalib(bool en);
     void setManchester(bool en);
     void setAppendStatus(bool en);
@@ -190,7 +206,7 @@ class Radio {
     void setMod(Modulation mod);
     void setFreq(double freq);
     void setDrate(double drate);
-    void setPwr(const uint8_t pwrTable[][8], uint8_t freqIdx, uint8_t pwrIdx);
+    void setPwr(uint8_t freqIdx, uint8_t pwrIdx, const uint8_t pwrTable[][8]);
     void setRxState();
     void setTxState();
     void setIdleState();
