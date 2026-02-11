@@ -9,20 +9,20 @@ bool Radio::begin() {
       !(drate > drateTable[mod][0] && drate < drateTable[mod][1])) 
     return false;
 
-  setAddr(addr);
-  setCRC(isCRC);
-  setFEC(isFEC);
-  setAutoCalib(isAutoCalib);
-  setManchester(isManchester);
-  setAppendStatus(isAppendStatus);
-  setDataWhitening(isDataWhitening);
-  setVariablePktLen(isVariablePktLen, pktLen);
-  setSync(syncMode, syncWord, preambleLen);
-
   setMod(mod);
   setFreq(freq);
   setDrate(drate);
   setPwr(freqBand, pwr, pwrTable);
+
+  setAddr(addr);
+  // setCRC(isCRC);
+  // setFEC(isFEC);
+  setAutoCalib(isAutoCalib);
+  // setManchester(isManchester);
+  setAppendStatus(isAppendStatus);
+  // setDataWhitening(isDataWhitening);
+  setVariablePktLen(isVariablePktLen, pktLen);
+  // setSync(syncMode, syncWord, preambleLen);
 
   return true;
 }
@@ -39,7 +39,7 @@ bool Radio::begin() {
   //   delayMicroseconds(50);
   //   yield();
   // };
-    Serial.print("bytesInFifo: ");
+    Serial.print("bytesInFifo before: ");
     Serial.println(rxBytes);
     Serial.print("state: ");
     Serial.println(getState());
@@ -55,6 +55,11 @@ bool Radio::begin() {
     lqi = readReg(REG_FIFO) & 0x7f;
     if(!(r >> 7) & 1) return false; // CRC Mismatch
   }
+  rxBytes = getRxBytes();
+  Serial.print("bytesInFifo after: ");
+  Serial.println(rxBytes);
+  Serial.print("state: ");
+  Serial.println(getState());
   
   while (getState() != STATE_IDLE){
     flushRxBuff();
@@ -62,9 +67,6 @@ bool Radio::begin() {
     yield();
   };
 
-    rxBytes = getRxBytes();
-    Serial.print("bytesInFifo: ");
-    Serial.println(rxBytes);
   setRxState();
 
   return true;
@@ -138,6 +140,8 @@ void Radio::setCRC(bool en) {
   writeRegField(REG_PKTCTRL0, (byte)en, 2, 2);
 };
 void Radio::setFEC(bool en) {
+  if(isVariablePktLen) return;
+
   writeRegField(REG_MDMCFG1, (byte)en, 7, 7);
 };
 void Radio::setAddr(byte addr) {
@@ -182,7 +186,7 @@ void Radio::setFreq(double freq){
 void Radio::setDrate(double drate){
   uint32_t xosc = CRYSTAL_FREQ * 1000;
   uint8_t e = log2((drate * (double)((uint32_t)1 << 20)) / xosc);
-  uint32_t m = round(drate * ((double)((uint32_t)1 << (28 - e)) / xosc) - 256.);
+  uint32_t m = round(drate * ((double)((uint32_t)1 << (28 - e)) / xosc) - 256);
 
   if (m == 256) {
     m = 0;
@@ -190,7 +194,8 @@ void Radio::setDrate(double drate){
   }
 
   writeRegField(REG_MDMCFG4, e, 3, 0);
-  writeReg(REG_MDMCFG3, (uint8_t)m);
+  writeRegField(REG_MDMCFG3, (uint8_t)m, 7, 0);
+  // writeReg(REG_MDMCFG3, (uint8_t)m);
 };
 void Radio::setPwr(FreqBand freqBand, PowerMW pwr, const uint8_t pwrTable[][8]){
   if(mod == MOD_ASK_OOK) {
@@ -233,6 +238,8 @@ uint8_t Radio::getRxBytes() {
   uint8_t bytes;
   do {
     bytes = readRegField(REG_RXBYTES, 6, 0);
+    delayMicroseconds(50);
+    yield();
   } while (bytes == 0);
   return bytes;
 };
@@ -240,6 +247,8 @@ uint8_t Radio::getTxBytes() {
   uint8_t bytes;
   do {
     bytes = readRegField(REG_TXBYTES, 6, 0);
+    delayMicroseconds(50);
+    yield();
   } while (bytes == 0);
   return bytes;
 };

@@ -105,7 +105,7 @@ enum SyncMode {
   SYNC_MODE_15_16          = 1,  /* 15/16 sync word bits detected */
   SYNC_MODE_16_16          = 2,  /* 16/16 sync word bits detected */
   SYNC_MODE_30_32          = 3,  /* 30/32 sync word bits detected */
-  SYNC_MODE_NO_PREAMBLE_CS = 4,  /* No preamble/sync, CS above threshold */
+  SYNC_MODE_NO_PREAMBLE_CS = 4,  /* No preamble/sync, carrier-sense above threshold */
   SYNC_MODE_15_16_CS       = 5,  /* 15/16 + carrier-sense above threshold */
   SYNC_MODE_16_16_CS       = 6,  /* 16/16 + carrier-sense above threshold */
   SYNC_MODE_30_32_CS       = 7,  /* 30/32 + carrier-sense above threshold */
@@ -130,7 +130,6 @@ static const double drateTable[][2] = {
 };
 
 static const uint8_t pwrTable[][8] = {
-  /* Power [dbm] -30   -20   -15   -10   0     5     7     10 */
   [FREQ_BAND_315] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
   [FREQ_BAND_433] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
   [FREQ_BAND_868] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
@@ -152,15 +151,15 @@ class Radio {
       mosi(mosi),
       spi(spi),
       spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE),
-      mod(MOD_ASK_OOK),
-      syncMode(SYNC_MODE_16_16),
-      freq(433.8),
+      mod(MOD_2FSK),
+      freq(433.0),
       drate(4.0),
       pwr(POWER_1MW),
       addr(0),
       pktLen(4),
+      syncMode(SYNC_MODE_16_16),
       syncWord(0x1234),
-      preambleLen(16),
+      preambleLen(64),
       isCRC(true), 
       isFEC(false),
       isAutoCalib(true),
