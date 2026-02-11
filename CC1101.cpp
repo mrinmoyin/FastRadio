@@ -11,9 +11,6 @@ bool Radio::begin() {
   freqIdx = getFreqIdx(freq, freqTable);
   pwrIdx = getPwrIdx(pwr);
 
-  Serial.println(freq);
-  Serial.println(freqIdx);
-  Serial.println(pwrIdx);
   if(!(partnum == PARTNUM && version == VERSION) ||
       !(drate > drateTable[mod][0] && drate < drateTable[mod][1]) || 
       freqIdx == -1) return false;
@@ -38,34 +35,31 @@ bool Radio::begin() {
 
  bool Radio::read(uint8_t *buff){
   // uint8_t bytesInFifo = readStatusReg(REG_RXBYTES);
-  uint8_t bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
   setIdleState();
   flushRxBuff();
   setRxState();
 
-  while (bytesInFifo < pktLen) {
-    bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
-    delayMicroseconds(50);
-    yield();
-  };
+  uint8_t rxBytes = getRxBytes();
+  // while (rxBytes < pktLen) {
+  //   rxBytes = getRxBytes;
+  //   delayMicroseconds(50);
+  //   yield();
+  // };
     Serial.print("bytesInFifo: ");
-    Serial.println(bytesInFifo);
+    Serial.println(rxBytes);
     Serial.print("state: ");
     Serial.println(getState());
 
-  // uint8_t size = readReg(REG_FIFO);
+  if(isVariablePktLen) {
+    pktLen = readReg(REG_FIFO);
+  }
   readRegBurst(REG_FIFO, buff, pktLen);
   if(isAppendStatus) {
     uint8_t r = readReg(REG_FIFO);
     if(r >= 128) rssi = ((rssi - 256) / 2) - RSSI_OFFSET;
     else rssi = (rssi / 2) - RSSI_OFFSET;
     lqi = readReg(REG_FIFO) & 0x7f;
-    // if(rssi) rssi = (uint8_t*)readReg(REG_FIFO);
-    // byte rawLqi = readReg(REG_FIFO);
-    // if(lqi) {
-    //   lqi = (uint8_t*)(rawLqi & 0x7f);
-    // };
-    // if(!(rawLqi >> 7) & 1) return false; // CRC Mismatch
+    if(!(r >> 7) & 1) return false; // CRC Mismatch
   }
   
   while (getState() != STATE_IDLE){
@@ -74,9 +68,9 @@ bool Radio::begin() {
     yield();
   };
 
-  bytesInFifo = readRegField(REG_RXBYTES, 6, 0);
+    rxBytes = getRxBytes();
     Serial.print("bytesInFifo: ");
-    Serial.println(bytesInFifo);
+    Serial.println(rxBytes);
   setRxState();
 
   return true;
@@ -85,10 +79,11 @@ bool Radio::write(uint8_t *buff){
   setIdleState();
   flushTxBuff();
 
-  // writeReg(REG_FIFO, pktLen);
+  if(isVariablePktLen) {
+    pktLen = sizeof(buff);
+    writeReg(REG_FIFO, pktLen);
+  }
   writeRegBurst(REG_FIFO, buff, pktLen);
-
-  uint8_t bytesInFifo = readStatusReg(REG_TXBYTES);
 
   setTxState();
 
@@ -234,6 +229,20 @@ void Radio::setIdleState() {
 byte Radio::getState() {
   writeStatusReg(REG_NOP);
   return state;
+};
+uint8_t Radio::getRxBytes() {
+  uint8_t bytes;
+  do {
+    bytes = readRegField(REG_RXBYTES, 6, 0);
+  } while (bytes == 0);
+  return bytes;
+};
+uint8_t Radio::getTxBytes() {
+  uint8_t bytes;
+  do {
+    bytes = readRegField(REG_TXBYTES, 6, 0);
+  } while (bytes == 0);
+  return bytes;
 };
 
 byte Radio::readReg(byte addr) {

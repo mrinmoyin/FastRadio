@@ -148,8 +148,8 @@ class Radio {
       pwr(0),
       addr(0),
       pktLen(4),
-      preambleLen(16),
       syncWord(0x1234),
+      preambleLen(16),
       isCRC(true), 
       isFEC(false),
       isAutoCalib(true),
@@ -212,6 +212,8 @@ class Radio {
     void setIdleState();
     byte getState();
 
+    uint8_t getRxBytes();
+    uint8_t getTxBytes();
     byte readReg(byte addr);
     byte readStatusReg(byte addr);
     byte readRegField(byte addr, byte hi, byte lo);
