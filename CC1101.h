@@ -86,10 +86,18 @@ enum Modulation {
   MOD_MSK     = 7
 };
 
-enum Frequency {
-  FREQ_315 = 0,
-  FREQ_433 = 1,
-  FREQ_868 = 2,
+enum FreqBand {
+  FREQ_BAND_315 = 0,
+  FREQ_BAND_433 = 1,
+  FREQ_BAND_868 = 2,
+  FREQ_BAND_915 = 3,
+};
+
+enum PowerMW {
+  POWER_1MW   = 4,  /* 1mw / 0dbm */
+  POWER_3MW   = 5,  /* 3.16mw / 5dbm */
+  POWER_5MW   = 6,  /* 5.01mw / 7dbm */
+  POWER_10MW  = 7, /* 10mw / 10dbm */
 };
 
 enum SyncMode {
@@ -104,9 +112,10 @@ enum SyncMode {
 };
 
 static const double freqTable[][2] = {
-  [FREQ_315] = { 300.0, 348.0 },
-  [FREQ_433] = { 387.0, 464.0 },
-  [FREQ_868] = { 779.0, 928.0 },
+  [FREQ_BAND_315] = { 300.0, 348.0 },
+  [FREQ_BAND_433] = { 387.0, 464.0 },
+  [FREQ_BAND_868] = { 779.0, 891.5 },
+  [FREQ_BAND_915] = { 896.6, 928.0 },
 };
 
 static const double drateTable[][2] = {
@@ -121,9 +130,11 @@ static const double drateTable[][2] = {
 };
 
 static const uint8_t pwrTable[][8] = {
-  [FREQ_315] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
-  [FREQ_433] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
-  [FREQ_868] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
+  /* Power [dbm] -30   -20   -15   -10   0     5     7     10 */
+  [FREQ_BAND_315] = { 0x12, 0x0d, 0x1c, 0x34, 0x51, 0x85, 0xcb, 0xc2 },
+  [FREQ_BAND_433] = { 0x12, 0x0e, 0x1d, 0x34, 0x60, 0x84, 0xc8, 0xc0 },
+  [FREQ_BAND_868] = { 0x03, 0x0f, 0x1e, 0x27, 0x50, 0x81, 0xcb, 0xc2 },
+  [FREQ_BAND_915] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 },
 };
 
 class Radio {
@@ -145,7 +156,7 @@ class Radio {
       syncMode(SYNC_MODE_16_16),
       freq(433.8),
       drate(4.0),
-      pwr(0),
+      pwr(POWER_1MW),
       addr(0),
       pktLen(4),
       syncWord(0x1234),
@@ -172,8 +183,9 @@ class Radio {
 
     Modulation mod;
     SyncMode syncMode;
+    PowerMW pwr;
+    FreqBand freqBand;
     double freq, drate;
-    int8_t pwr;
     uint8_t pktLen, preambleLen;
     uint16_t syncWord;
     byte addr;
@@ -185,8 +197,9 @@ class Radio {
          isAppendStatus,
          isDataWhitening,
          isVariablePktLen;
-    int8_t freqIdx = -1, pwrIdx = -1, preambleIdx = -1;
+    int8_t pwrIdx = -1, preambleIdx = -1;
 
+    bool getChipInfo();
     void start();
     void stop();
 
@@ -202,18 +215,20 @@ class Radio {
     void setManchester(bool en);
     void setAppendStatus(bool en);
     void setDataWhitening(bool en);
-    void setVariablePktLen(bool en);
+    void setVariablePktLen(bool en, uint8_t pktLen);
     void setMod(Modulation mod);
     void setFreq(double freq);
     void setDrate(double drate);
-    void setPwr(uint8_t freqIdx, uint8_t pwrIdx, const uint8_t pwrTable[][8]);
+    void setPwr(FreqBand freqBand, PowerMW pwr, const uint8_t pwrTable[][8]);
     void setRxState();
     void setTxState();
     void setIdleState();
     byte getState();
-
     uint8_t getRxBytes();
     uint8_t getTxBytes();
+    bool getFreqBand(double freq, const double freqTable[][2]);
+    uint8_t getPreambleIdx(uint8_t len);
+
     byte readReg(byte addr);
     byte readStatusReg(byte addr);
     byte readRegField(byte addr, byte hi, byte lo);

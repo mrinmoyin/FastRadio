@@ -1,19 +1,13 @@
 #include "CC1101.h"
-#include "RadioUtils.h"
 
 bool Radio::begin() {
   reset();
   delayMicroseconds(500);
 
-  partnum = readStatusReg(REG_PARTNUM);
-  version = readStatusReg(REG_VERSION);
-
-  freqIdx = getFreqIdx(freq, freqTable);
-  pwrIdx = getPwrIdx(pwr);
-
-  if(!(partnum == PARTNUM && version == VERSION) ||
-      !(drate > drateTable[mod][0] && drate < drateTable[mod][1]) || 
-      freqIdx == -1) return false;
+  if(!getChipInfo() || 
+      !getFreqBand(freq, freqTable) ||
+      !(drate > drateTable[mod][0] && drate < drateTable[mod][1])) 
+    return false;
 
   setAddr(addr);
   setCRC(isCRC);
@@ -22,13 +16,13 @@ bool Radio::begin() {
   setManchester(isManchester);
   setAppendStatus(isAppendStatus);
   setDataWhitening(isDataWhitening);
-  setVariablePktLen(isVariablePktLen);
+  setVariablePktLen(isVariablePktLen, pktLen);
   setSync(syncMode, syncWord, preambleLen);
 
   setMod(mod);
   setFreq(freq);
   setDrate(drate);
-  setPwr(freqIdx, pwrIdx, pwrTable);
+  setPwr(freqBand, pwr, pwrTable);
 
   return true;
 }
@@ -97,6 +91,13 @@ bool Radio::write(uint8_t *buff){
   return true;
 };
 
+bool Radio::getChipInfo() {
+  partnum = readStatusReg(REG_PARTNUM);
+  version = readStatusReg(REG_VERSION);
+
+  if(partnum == PARTNUM && version == VERSION) return true;
+  return false;
+};
 void Radio::start() {
   spi.beginTransaction(spiSettings);
   digitalWrite(ss, LOW);
@@ -163,13 +164,12 @@ void Radio::setAppendStatus(bool en) {
 void Radio::setDataWhitening(bool en) {
   writeRegField(REG_PKTCTRL0, (byte)en, 6, 6);
 };
-void Radio::setVariablePktLen(bool en) {
+void Radio::setVariablePktLen(bool en, uint8_t pktlLen) {
   writeRegField(REG_PKTCTRL0, (byte)en, 1, 0);
   writeReg(REG_PKTLEN, pktLen);
 };
 void Radio::setMod(Modulation mod){
   writeRegField(REG_MDMCFG2, (uint8_t)mod, 6, 4);
-  // setPwr(power);
 };
 void Radio::setFreq(double freq){
   uint32_t f = ((freq * 65536.0) / CRYSTAL_FREQ); 
@@ -178,7 +178,6 @@ void Radio::setFreq(double freq){
   writeReg(REG_FREQ1, (f >> 8) & 0xff);
   writeReg(REG_FREQ2, (f >> 16) & 0xff);
 
-    // setPwr(power);
 };
 void Radio::setDrate(double drate){
   uint32_t xosc = CRYSTAL_FREQ * 1000;
@@ -193,13 +192,13 @@ void Radio::setDrate(double drate){
   writeRegField(REG_MDMCFG4, e, 3, 0);
   writeReg(REG_MDMCFG3, (uint8_t)m);
 };
-void Radio::setPwr(uint8_t freqIdx, uint8_t pwrIdx, const uint8_t pwrTable[][8]){
+void Radio::setPwr(FreqBand freqBand, PowerMW pwr, const uint8_t pwrTable[][8]){
   if(mod == MOD_ASK_OOK) {
-    uint8_t buff[2] = {WRITE, pwrTable[freqIdx][pwrIdx]};
-    writeRegBurst(REG_PATABLE, buff, sizeof(buff));
+    uint8_t paTable[2] = {WRITE, pwrTable[freqBand][pwr]};
+    writeRegBurst(REG_PATABLE, paTable, sizeof(paTable));
     writeRegField(REG_FREND0, 1, 2, 0);
   } else {
-    writeReg(REG_PATABLE, pwrTable[freqIdx][pwrIdx]);
+    writeReg(REG_PATABLE, pwrTable[freqBand][pwr]);
     writeRegField(REG_FREND0, 0, 2, 0);
   }
 };
@@ -243,6 +242,45 @@ uint8_t Radio::getTxBytes() {
     bytes = readRegField(REG_TXBYTES, 6, 0);
   } while (bytes == 0);
   return bytes;
+};
+bool Radio::getFreqBand(double freq, const double freqTable[][2]) {
+  for(int i = 0; i < 4; i++) {
+    if(freq >= freqTable[i][0] && freq <= freqTable[i][1]) {
+      freqBand = (FreqBand)i;
+      return true;
+    }
+  }
+  return false;
+};
+uint8_t Radio::getPreambleIdx(uint8_t len) {
+  switch (len) {
+    case 16:
+      return 0;
+    break;
+    case 24:
+      return 1;
+    break;
+    case 32:
+      return 2;
+    break;
+    case 48:
+      return 3;
+    break;
+    case 64:
+      return 4;
+    break;
+    case 96:
+      return 5;
+    break;
+    case 128:
+      return 6;
+    break;
+    case 192:
+      return 7;
+    break;
+    default:
+      return 0;;
+  }
 };
 
 byte Radio::readReg(byte addr) {
