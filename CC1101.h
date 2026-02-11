@@ -152,7 +152,7 @@ class Radio {
       spi(spi),
       spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE),
       mod(MOD_2FSK),
-      freq(433.0),
+      freq(433.8),
       drate(4.0),
       pwr(POWER_1MW),
       addr(0),
@@ -165,7 +165,7 @@ class Radio {
       isAutoCalib(true),
       isManchester(false),
       isAppendStatus(true),
-      isDataWhitening(true),
+      isDataWhitening(false),
       isVariablePktLen(false) {};
 
   int8_t partnum = -1, version = -1;
@@ -222,9 +222,10 @@ class Radio {
     void setRxState();
     void setTxState();
     void setIdleState();
+
     byte getState();
-    uint8_t getRxBytes();
-    uint8_t getTxBytes();
+    uint8_t getRxBytes(uint8_t len = 1);
+    uint8_t getTxBytes(uint8_t len = 1);
     bool getFreqBand(double freq, const double freqTable[][2]);
     uint8_t getPreambleIdx(uint8_t len);
 

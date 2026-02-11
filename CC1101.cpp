@@ -2,7 +2,8 @@
 
 bool Radio::begin() {
   reset();
-  delayMicroseconds(500);
+  delayMicroseconds(50);
+  yield();
 
   if(!getChipInfo() || 
       !getFreqBand(freq, freqTable) ||
@@ -15,34 +16,29 @@ bool Radio::begin() {
   setPwr(freqBand, pwr, pwrTable);
 
   setAddr(addr);
-  // setCRC(isCRC);
-  // setFEC(isFEC);
+  setCRC(isCRC);
+  setFEC(isFEC);
   setAutoCalib(isAutoCalib);
-  // setManchester(isManchester);
+  setManchester(isManchester);
   setAppendStatus(isAppendStatus);
-  // setDataWhitening(isDataWhitening);
+  setDataWhitening(isDataWhitening);
   setVariablePktLen(isVariablePktLen, pktLen);
-  // setSync(syncMode, syncWord, preambleLen);
+  setSync(syncMode, syncWord, preambleLen);
 
   return true;
 }
 
  bool Radio::read(uint8_t *buff){
-  // uint8_t bytesInFifo = readStatusReg(REG_RXBYTES);
   setIdleState();
   flushRxBuff();
+  delayMicroseconds(50);
+  yield();
   setRxState();
 
-  uint8_t rxBytes = getRxBytes();
-  // while (rxBytes < pktLen) {
-  //   rxBytes = getRxBytes;
-  //   delayMicroseconds(50);
-  //   yield();
-  // };
-    Serial.print("bytesInFifo before: ");
-    Serial.println(rxBytes);
-    Serial.print("state: ");
-    Serial.println(getState());
+  uint8_t rxBytes = getRxBytes(4);
+
+  Serial.print("bytesInRXFifo before: ");
+  Serial.println(rxBytes);
 
   if(isVariablePktLen) {
     pktLen = readReg(REG_FIFO);
@@ -55,29 +51,36 @@ bool Radio::begin() {
     lqi = readReg(REG_FIFO) & 0x7f;
     if(!(r >> 7) & 1) return false; // CRC Mismatch
   }
-  rxBytes = getRxBytes();
-  Serial.print("bytesInFifo after: ");
-  Serial.println(rxBytes);
-  Serial.print("state: ");
-  Serial.println(getState());
+  Serial.print("bytesInTXFifo after: ");
+  Serial.println(readRegField(REG_RXBYTES, 6, 0));
   
   while (getState() != STATE_IDLE){
-    flushRxBuff();
     delayMicroseconds(50);
     yield();
   };
 
-  setRxState();
+  // flushRxBuff();
+  // setRxState();
 
   return true;
 };
 bool Radio::write(uint8_t *buff){
   setIdleState();
   flushTxBuff();
+  delayMicroseconds(50);
+  yield();
+
+  uint8_t txBytes = getTxBytes(4);
+
+  Serial.print("bytesInTXFifo before: ");
+  Serial.println(txBytes);
 
   if(isVariablePktLen) {
     pktLen = sizeof(buff);
     writeReg(REG_FIFO, pktLen);
+  }
+  if(addr > 0) {
+    writeReg(REG_FIFO, addr);
   }
   writeRegBurst(REG_FIFO, buff, pktLen);
 
@@ -87,8 +90,10 @@ bool Radio::write(uint8_t *buff){
     delayMicroseconds(50);
     yield();
   };
+  Serial.print("bytesInTXFifo after: ");
+  Serial.println(readRegField(REG_TXBYTES, 6, 0));
 
-  flushTxBuff();
+  // flushTxBuff();
 
   return true;
 };
@@ -160,6 +165,7 @@ void Radio::setAutoCalib(bool en) {
   writeRegField(REG_MCSM0, (byte)en, 5, 4);
 };
 void Radio::setManchester(bool en) {
+  if(mod == MOD_MSK || mod == MOD_4FSK) return;
   writeRegField(REG_MDMCFG2, (byte)en, 3, 3);
 };
 void Radio::setAppendStatus(bool en) {
@@ -198,14 +204,20 @@ void Radio::setDrate(double drate){
   // writeReg(REG_MDMCFG3, (uint8_t)m);
 };
 void Radio::setPwr(FreqBand freqBand, PowerMW pwr, const uint8_t pwrTable[][8]){
+  // if(mod == MOD_ASK_OOK) {
+  //   uint8_t paTable[2] = {WRITE, pwrTable[freqBand][pwr]};
+  //   writeRegBurst(REG_PATABLE, paTable, 2);
+  //   writeRegField(REG_FREND0, 1, 2, 0);
+  // } else {
+  //   writeReg(REG_PATABLE, pwrTable[freqBand][pwr]);
+  //   writeRegField(REG_FREND0, 0, 2, 0);
+  // }
   if(mod == MOD_ASK_OOK) {
-    uint8_t paTable[2] = {WRITE, pwrTable[freqBand][pwr]};
-    writeRegBurst(REG_PATABLE, paTable, sizeof(paTable));
     writeRegField(REG_FREND0, 1, 2, 0);
   } else {
-    writeReg(REG_PATABLE, pwrTable[freqBand][pwr]);
     writeRegField(REG_FREND0, 0, 2, 0);
   }
+  writeReg(REG_PATABLE, pwrTable[freqBand][pwr]);
 };
 void Radio::setRxState() {
   while(getState() != STATE_RX) {
@@ -234,22 +246,22 @@ byte Radio::getState() {
   writeStatusReg(REG_NOP);
   return state;
 };
-uint8_t Radio::getRxBytes() {
+uint8_t Radio::getRxBytes(uint8_t len) {
   uint8_t bytes;
   do {
     bytes = readRegField(REG_RXBYTES, 6, 0);
     delayMicroseconds(50);
     yield();
-  } while (bytes == 0);
+  } while (bytes < len);
   return bytes;
 };
-uint8_t Radio::getTxBytes() {
+uint8_t Radio::getTxBytes(uint8_t len) {
   uint8_t bytes;
   do {
     bytes = readRegField(REG_TXBYTES, 6, 0);
     delayMicroseconds(50);
     yield();
-  } while (bytes == 0);
+  } while (bytes < len);
   return bytes;
 };
 bool Radio::getFreqBand(double freq, const double freqTable[][2]) {
