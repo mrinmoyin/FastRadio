@@ -70,11 +70,6 @@ bool Radio::write(uint8_t *buff){
   delayMicroseconds(50);
   yield();
 
-  uint8_t txBytes = getTxBytes(4);
-
-  Serial.print("bytesInTXFifo before: ");
-  Serial.println(txBytes);
-
   if(isVariablePktLen) {
     pktLen = sizeof(buff);
     writeReg(REG_FIFO, pktLen);
@@ -90,10 +85,14 @@ bool Radio::write(uint8_t *buff){
     delayMicroseconds(50);
     yield();
   };
+
+  // uint8_t txBytes = getTxBytes(1);
+  // Serial.print("bytesInTXFifo before: ");
+  // Serial.println(txBytes);
   Serial.print("bytesInTXFifo after: ");
   Serial.println(readRegField(REG_TXBYTES, 6, 0));
 
-  // flushTxBuff();
+  flushTxBuff();
 
   return true;
 };
