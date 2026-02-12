@@ -66,62 +66,6 @@ bool CC1101::write(uint8_t *buff){
 
   return true;
 };
-bool CC1101::readWrite(uint8_t *rxBuff, uint8_t *txBuff) {
-  while (true) {
-    getRxBytes(pktLen);
-    readRxFifo(rxBuff);
-      Serial.print("Recieved: [");
-      for (int i = 0; i < sizeof(rxBuff); i++) {
-        if (i != 0) Serial.print(", ");
-        Serial.print(rxBuff[i]);
-      }
-      Serial.print("] Length: ");
-      Serial.print(sizeof(rxBuff));
-      Serial.print(" RSSI: ");
-      Serial.print(rssi);
-      Serial.print(" LQI: ");
-      Serial.println(lqi);
-    writeTxFifo(txBuff);
-      Serial.print("Sent: [");
-      for (int i = 0; i < sizeof(txBuff); i++) {
-        if (i != 0) Serial.print(", ");
-        Serial.print(txBuff[i]);
-      }
-      Serial.print("] Length: ");
-      Serial.println(sizeof(txBuff));
-    delay(2000);
-  }
-
-  return true;
-};
-bool CC1101::writeRead(uint8_t *txBuff, uint8_t *rxBuff) {
-  while (true) {
-    writeTxFifo(txBuff);
-      Serial.print("Sent: [");
-      for (int i = 0; i < sizeof(txBuff); i++) {
-        if (i != 0) Serial.print(", ");
-        Serial.print(txBuff[i]);
-      }
-      Serial.print("] Length: ");
-      Serial.println(sizeof(txBuff));
-    getRxBytes(pktLen);
-    readRxFifo(rxBuff);
-      Serial.print("Recieved: [");
-      for (int i = 0; i < sizeof(rxBuff); i++) {
-        if (i != 0) Serial.print(", ");
-        Serial.print(rxBuff[i]);
-      }
-      Serial.print("] Length: ");
-      Serial.print(sizeof(rxBuff));
-      Serial.print(" RSSI: ");
-      Serial.print(rssi);
-      Serial.print(" LQI: ");
-      Serial.println(lqi);
-    delay(2000);
-  }
-
-  return true;
-};
 void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
   setIdleState();
   flushTxBuff();

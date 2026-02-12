@@ -176,8 +176,6 @@ class CC1101 {
 
   bool read(uint8_t *buff);
   bool write(uint8_t *buff);
-  bool readWrite(uint8_t *rxBuff, uint8_t *txBuff);
-  bool writeRead(uint8_t *txBuff, uint8_t *rxBuff);
   void link(uint8_t *txBuff, uint8_t *rxBuff);
 
   private: 
