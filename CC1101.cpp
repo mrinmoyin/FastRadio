@@ -29,10 +29,32 @@ bool Radio::begin() {
 }
 
 #if isTwoWay
-bool Radio::readWrite(uint8_t *rxBuff, uint8_t *TxBuff) {
+bool Radio::readWrite(uint8_t *rxBuff, uint8_t *txBuff) {
+  setIdleState();
+  flushTxBuff();
+  flushRxBuff();
+  setRxState();
+
+  while (true) {
+    getRxBytes(pktLen);
+    readRxFifo(rxBuff);
+    writeTxFifo(txBuff);
+  }
+
   return true;
 };
-bool Radio::writeRead(uint8_t *TxBuff, uint8_t *rxBuff) {
+bool Radio::writeRead(uint8_t *txBuff, uint8_t *rxBuff) {
+  setIdleState();
+  flushTxBuff();
+  flushRxBuff();
+  setRxState();
+
+  while (true) {
+    writeTxFifo(txBuff);
+    getRxBytes(pktLen);
+    readRxFifo(rxBuff);
+  }
+
   return true;
 };
 #else
@@ -41,7 +63,7 @@ bool Radio::read(uint8_t *buff){
   flushRxBuff();
   setRxState();
 
-  uint8_t rxBytes = getRxBytes(4);
+  uint8_t rxBytes = getRxBytes(pktLen);
 
   Serial.print("bytesInRXFifo before: ");
   Serial.println(rxBytes);
