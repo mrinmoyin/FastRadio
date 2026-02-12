@@ -227,7 +227,7 @@ class CC1101 {
     void setRxState();
     void setTxState();
     void setIdleState();
-    void setTwoWay(bool isTwoWay = true);
+    void setTwoWay();
 
     byte getState();
     uint8_t getRxBytes(uint8_t len = 1);

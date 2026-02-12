@@ -54,9 +54,8 @@ bool CC1101::write(uint8_t *buff){
   setIdleState();
   flushTxBuff();
 
-  writeTxFifo(buff);
-
   setTxState();
+  writeTxFifo(buff);
 
   waitForState();
 
@@ -125,6 +124,8 @@ bool CC1101::writeRead(uint8_t *txBuff, uint8_t *rxBuff) {
 };
 void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
   setIdleState();
+  flushTxBuff();
+  flushRxBuff();
   setTwoWay(true);
   setTxState();
   while(true) {
@@ -142,11 +143,11 @@ void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
       Serial.print("] Length: ");
       Serial.println(sizeof(txBuff));
 
+      Serial.print("writeState: ");
+      Serial.println(getState());
       waitForState(STATE_RX);
       Serial.print("bytesInTXFifo after: ");
       Serial.println(readRegField(REG_TXBYTES, 6, 0));
-      Serial.print("writeState: ");
-      Serial.println(getState());
 
       getRxBytes(pktLen);
       Serial.print("getState: ");
@@ -317,14 +318,10 @@ void CC1101::setIdleState() {
     yield();
   }
 };
-void CC1101::setTwoWay(bool isTwoWay) {
-  if(isTwoWay) {
-    writeRegField(REG_MDMCFG1, 2, 3, 2);
-    writeRegField(REG_MDMCFG1, 3, 1, 0);
-  } else {
-    writeRegField(REG_MDMCFG1, 0, 3, 2);
-    writeRegField(REG_MDMCFG1, 0, 1, 0);
-  }
+void CC1101::setTwoWay() {
+    writeRegField(REG_MCSM1, 0, 5, 4); /* Disabl CCA */
+    writeRegField(REG_MCSM1, 2, 3, 2); /* Set RXOFF to TX */
+    writeRegField(REG_MCSM1, 3, 1, 0); /* Set TXOFF to RX */
 };
 
 byte CC1101::getState() {
