@@ -1,6 +1,7 @@
-// #pragma once
-#ifndef CC1101
-#define CC1101
+#pragma once
+
+#ifndef CC1101_H
+#define CC1101_H
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -136,9 +137,9 @@ static const uint8_t pwrTable[][8] = {
   [FREQ_BAND_915] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 },
 };
 
-class Radio {
+class CC1101 {
   public:
-    Radio(
+    CC1101(
         int8_t ss = SS,
         int8_t sck = SCK,
         int8_t miso = MISO,
@@ -166,21 +167,18 @@ class Radio {
       isManchester(false),
       isAppendStatus(true),
       isDataWhitening(false),
-      isVariablePktLen(false),
-      isTwoWay(false) {};
+      isVariablePktLen(false) {};
 
   int8_t partnum = -1, version = -1;
   uint8_t rssi, lqi;
 
   bool begin();
 
-  #if isTwoWay
-  bool readWrite(uint8_t *rxBuff, uint8_t *txBuff);
-  bool writeRead(uint8_t *txBuff, uint8_t *rxBuff);
-  #else 
   bool read(uint8_t *buff);
   bool write(uint8_t *buff);
-  #endif
+  bool readWrite(uint8_t *rxBuff, uint8_t *txBuff);
+  bool writeRead(uint8_t *txBuff, uint8_t *rxBuff);
+  void link(uint8_t *txBuff, uint8_t *rxBuff);
 
   private: 
     uint8_t sck, miso, mosi, ss;
@@ -202,8 +200,7 @@ class Radio {
          isManchester,
          isAppendStatus,
          isDataWhitening,
-         isVariablePktLen,
-         isTwoWay;
+         isVariablePktLen;
     int8_t pwrIdx = -1, preambleIdx = -1;
 
     bool getChipInfo();
@@ -230,7 +227,7 @@ class Radio {
     void setRxState();
     void setTxState();
     void setIdleState();
-    void setTwoWay(bool isTwoWay);
+    void setTwoWay(bool isTwoWay = true);
 
     byte getState();
     uint8_t getRxBytes(uint8_t len = 1);
@@ -238,7 +235,7 @@ class Radio {
     bool getFreqBand(double freq, const double freqTable[][2]);
     uint8_t getPreambleIdx(uint8_t len);
 
-    void waitForIdleState();
+    void waitForState(State state = STATE_IDLE);
 
     void readRxFifo(uint8_t *buff);
     void writeTxFifo(uint8_t *buff);

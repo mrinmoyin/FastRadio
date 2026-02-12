@@ -1,6 +1,6 @@
 #include "CC1101.h"
 
-bool Radio::begin() {
+bool CC1101::begin() {
   reset();
   delayMicroseconds(50);
   yield();
@@ -28,37 +28,7 @@ bool Radio::begin() {
   return true;
 }
 
-#if isTwoWay
-bool Radio::readWrite(uint8_t *rxBuff, uint8_t *txBuff) {
-  setIdleState();
-  flushTxBuff();
-  flushRxBuff();
-  setRxState();
-
-  while (true) {
-    getRxBytes(pktLen);
-    readRxFifo(rxBuff);
-    writeTxFifo(txBuff);
-  }
-
-  return true;
-};
-bool Radio::writeRead(uint8_t *txBuff, uint8_t *rxBuff) {
-  setIdleState();
-  flushTxBuff();
-  flushRxBuff();
-  setRxState();
-
-  while (true) {
-    writeTxFifo(txBuff);
-    getRxBytes(pktLen);
-    readRxFifo(rxBuff);
-  }
-
-  return true;
-};
-#else
-bool Radio::read(uint8_t *buff){
+bool CC1101::read(uint8_t *buff){
   setIdleState();
   flushRxBuff();
   setRxState();
@@ -73,14 +43,14 @@ bool Radio::read(uint8_t *buff){
   Serial.print("bytesInTXFifo after: ");
   Serial.println(readRegField(REG_RXBYTES, 6, 0));
 
-  waitForIdleState();
+  waitForState();
 
   // flushRxBuff();
   // setRxState();
 
   return true;
 };
-bool Radio::write(uint8_t *buff){
+bool CC1101::write(uint8_t *buff){
   setIdleState();
   flushTxBuff();
 
@@ -88,7 +58,7 @@ bool Radio::write(uint8_t *buff){
 
   setTxState();
 
-  waitForIdleState();
+  waitForState();
 
   Serial.print("bytesInTXFifo after: ");
   Serial.println(readRegField(REG_TXBYTES, 6, 0));
@@ -97,16 +67,116 @@ bool Radio::write(uint8_t *buff){
 
   return true;
 };
-#endif
+bool CC1101::readWrite(uint8_t *rxBuff, uint8_t *txBuff) {
+  while (true) {
+    getRxBytes(pktLen);
+    readRxFifo(rxBuff);
+      Serial.print("Recieved: [");
+      for (int i = 0; i < sizeof(rxBuff); i++) {
+        if (i != 0) Serial.print(", ");
+        Serial.print(rxBuff[i]);
+      }
+      Serial.print("] Length: ");
+      Serial.print(sizeof(rxBuff));
+      Serial.print(" RSSI: ");
+      Serial.print(rssi);
+      Serial.print(" LQI: ");
+      Serial.println(lqi);
+    writeTxFifo(txBuff);
+      Serial.print("Sent: [");
+      for (int i = 0; i < sizeof(txBuff); i++) {
+        if (i != 0) Serial.print(", ");
+        Serial.print(txBuff[i]);
+      }
+      Serial.print("] Length: ");
+      Serial.println(sizeof(txBuff));
+    delay(2000);
+  }
 
-bool Radio::getChipInfo() {
+  return true;
+};
+bool CC1101::writeRead(uint8_t *txBuff, uint8_t *rxBuff) {
+  while (true) {
+    writeTxFifo(txBuff);
+      Serial.print("Sent: [");
+      for (int i = 0; i < sizeof(txBuff); i++) {
+        if (i != 0) Serial.print(", ");
+        Serial.print(txBuff[i]);
+      }
+      Serial.print("] Length: ");
+      Serial.println(sizeof(txBuff));
+    getRxBytes(pktLen);
+    readRxFifo(rxBuff);
+      Serial.print("Recieved: [");
+      for (int i = 0; i < sizeof(rxBuff); i++) {
+        if (i != 0) Serial.print(", ");
+        Serial.print(rxBuff[i]);
+      }
+      Serial.print("] Length: ");
+      Serial.print(sizeof(rxBuff));
+      Serial.print(" RSSI: ");
+      Serial.print(rssi);
+      Serial.print(" LQI: ");
+      Serial.println(lqi);
+    delay(2000);
+  }
+
+  return true;
+};
+void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
+  setIdleState();
+  setTwoWay(true);
+  setTxState();
+  while(true) {
+      Serial.print("linkState: ");
+      Serial.println(getState());
+      Serial.print("bytesInTXFifo before: ");
+      Serial.println(readRegField(REG_TXBYTES, 6, 0));
+
+      writeTxFifo(txBuff);
+      Serial.print("Sent: [");
+      for (int i = 0; i < sizeof(txBuff); i++) {
+        if (i != 0) Serial.print(", ");
+        Serial.print(txBuff[i]);
+      }
+      Serial.print("] Length: ");
+      Serial.println(sizeof(txBuff));
+
+      waitForState(STATE_RX);
+      Serial.print("bytesInTXFifo after: ");
+      Serial.println(readRegField(REG_TXBYTES, 6, 0));
+      Serial.print("writeState: ");
+      Serial.println(getState());
+
+      getRxBytes(pktLen);
+      Serial.print("getState: ");
+      Serial.println(getState());
+
+      readRxFifo(rxBuff);
+      Serial.print("readState: ");
+      Serial.println(getState());
+      Serial.print("Recieved: [");
+      for (int i = 0; i < sizeof(rxBuff); i++) {
+        if (i != 0) Serial.print(", ");
+        Serial.print(rxBuff[i]);
+      }
+      Serial.print("] Length: ");
+      Serial.print(sizeof(rxBuff));
+      Serial.print(" RSSI: ");
+      Serial.print(rssi);
+      Serial.print(" LQI: ");
+      Serial.println(lqi);
+  }
+};
+
+bool CC1101::getChipInfo() {
   partnum = readStatusReg(REG_PARTNUM);
   version = readStatusReg(REG_VERSION);
 
   if(partnum == PARTNUM && version == VERSION) return true;
   return false;
 };
-void Radio::start() {
+void CC1101::start() {
   spi.beginTransaction(spiSettings);
   digitalWrite(ss, LOW);
 
@@ -116,12 +186,12 @@ void Radio::start() {
 
   while (digitalRead(miso));
 }
-void Radio::stop() {
+void CC1101::stop() {
   digitalWrite(ss, HIGH);
   spi.endTransaction();
 }
 
-void Radio::reset() {
+void CC1101::reset() {
   digitalWrite(ss, HIGH);
   delayMicroseconds(5);
   digitalWrite(ss, LOW);
@@ -133,32 +203,32 @@ void Radio::reset() {
   spi.transfer(REG_RES);
   stop();
 }
-void Radio::flushRxBuff(){
+void CC1101::flushRxBuff(){
   if(getState() != (STATE_IDLE || STATE_RXFIFO_OVERFLOW)) return;
   writeStatusReg(REG_FRX);
   delayMicroseconds(50);
   yield();
 };
-void Radio::flushTxBuff(){
+void CC1101::flushTxBuff(){
   if(getState() != (STATE_IDLE || STATE_TXFIFO_UNDERFLOW)) return;
   writeStatusReg(REG_FTX);
   delayMicroseconds(50);
   yield();
 };
 
-void Radio::setCRC(bool en) {
+void CC1101::setCRC(bool en) {
   writeRegField(REG_PKTCTRL0, (byte)en, 2, 2);
 };
-void Radio::setFEC(bool en) {
+void CC1101::setFEC(bool en) {
   if(isVariablePktLen) return;
 
   writeRegField(REG_MDMCFG1, (byte)en, 7, 7);
 };
-void Radio::setAddr(byte addr) {
+void CC1101::setAddr(byte addr) {
   writeRegField(REG_PKTCTRL1, addr > 0 ? 1 : 0, 1, 0);
   writeReg(REG_ADDR, addr);
 };
-void Radio::setSync(SyncMode syncMode, uint16_t syncWord, uint8_t preambleLen) {
+void CC1101::setSync(SyncMode syncMode, uint16_t syncWord, uint8_t preambleLen) {
   writeRegField(REG_MDMCFG2, syncMode, 2, 0);
 
   writeReg(REG_SYNC1, syncWord >> 8);
@@ -166,27 +236,27 @@ void Radio::setSync(SyncMode syncMode, uint16_t syncWord, uint8_t preambleLen) {
 
   writeRegField(REG_MDMCFG1, getPreambleIdx(preambleLen), 6, 4);
 };
-void Radio::setAutoCalib(bool en) {
+void CC1101::setAutoCalib(bool en) {
   writeRegField(REG_MCSM0, (byte)en, 5, 4);
 };
-void Radio::setManchester(bool en) {
+void CC1101::setManchester(bool en) {
   if(mod == MOD_MSK || mod == MOD_4FSK) return;
   writeRegField(REG_MDMCFG2, (byte)en, 3, 3);
 };
-void Radio::setAppendStatus(bool en) {
+void CC1101::setAppendStatus(bool en) {
   writeRegField(REG_PKTCTRL1, (byte)en, 2, 2);
 };
-void Radio::setDataWhitening(bool en) {
+void CC1101::setDataWhitening(bool en) {
   writeRegField(REG_PKTCTRL0, (byte)en, 6, 6);
 };
-void Radio::setVariablePktLen(bool en, uint8_t pktlLen) {
+void CC1101::setVariablePktLen(bool en, uint8_t pktlLen) {
   writeRegField(REG_PKTCTRL0, (byte)en, 1, 0);
   writeReg(REG_PKTLEN, pktLen);
 };
-void Radio::setMod(Modulation mod){
+void CC1101::setMod(Modulation mod){
   writeRegField(REG_MDMCFG2, (uint8_t)mod, 6, 4);
 };
-void Radio::setFreq(double freq){
+void CC1101::setFreq(double freq){
   uint32_t f = ((freq * 65536.0) / CRYSTAL_FREQ); 
 
   writeReg(REG_FREQ0, f & 0xff);
@@ -194,7 +264,7 @@ void Radio::setFreq(double freq){
   writeReg(REG_FREQ2, (f >> 16) & 0xff);
 
 };
-void Radio::setDrate(double drate){
+void CC1101::setDrate(double drate){
   uint32_t xosc = CRYSTAL_FREQ * 1000;
   uint8_t e = log2((drate * (double)((uint32_t)1 << 20)) / xosc);
   uint32_t m = round(drate * ((double)((uint32_t)1 << (28 - e)) / xosc) - 256);
@@ -208,7 +278,7 @@ void Radio::setDrate(double drate){
   writeRegField(REG_MDMCFG3, (uint8_t)m, 7, 0);
   // writeReg(REG_MDMCFG3, (uint8_t)m);
 };
-void Radio::setPwr(FreqBand freqBand, PowerMW pwr, const uint8_t pwrTable[][8]){
+void CC1101::setPwr(FreqBand freqBand, PowerMW pwr, const uint8_t pwrTable[][8]){
   // if(mod == MOD_ASK_OOK) {
   //   uint8_t paTable[2] = {WRITE, pwrTable[freqBand][pwr]};
   //   writeRegBurst(REG_PATABLE, paTable, 2);
@@ -224,7 +294,7 @@ void Radio::setPwr(FreqBand freqBand, PowerMW pwr, const uint8_t pwrTable[][8]){
   }
   writeReg(REG_PATABLE, pwrTable[freqBand][pwr]);
 };
-void Radio::setRxState() {
+void CC1101::setRxState() {
   while(getState() != STATE_RX) {
     if (state == STATE_RXFIFO_OVERFLOW) flushRxBuff();
     else if (state != (STATE_CALIB || STATE_SETTLING)) writeStatusReg(REG_RX);
@@ -232,7 +302,7 @@ void Radio::setRxState() {
     yield();
   }
 };
-void Radio::setTxState() {
+void CC1101::setTxState() {
   while(getState() != STATE_TX) {
     if(state == STATE_TXFIFO_UNDERFLOW) flushTxBuff();
     else if (state != (STATE_CALIB || STATE_SETTLING)) writeStatusReg(REG_TX);
@@ -240,14 +310,14 @@ void Radio::setTxState() {
     yield();
   }
 };
-void Radio::setIdleState() {
+void CC1101::setIdleState() {
   while(getState() != STATE_IDLE) {
     writeStatusReg(REG_IDLE);
     delayMicroseconds(50);
     yield();
   }
 };
-void Radio::setTwoWay(bool isTwoWay) {
+void CC1101::setTwoWay(bool isTwoWay) {
   if(isTwoWay) {
     writeRegField(REG_MDMCFG1, 2, 3, 2);
     writeRegField(REG_MDMCFG1, 3, 1, 0);
@@ -257,11 +327,11 @@ void Radio::setTwoWay(bool isTwoWay) {
   }
 };
 
-byte Radio::getState() {
+byte CC1101::getState() {
   writeStatusReg(REG_NOP);
   return state;
 };
-uint8_t Radio::getRxBytes(uint8_t len) {
+uint8_t CC1101::getRxBytes(uint8_t len) {
   uint8_t bytes;
   do {
     bytes = readRegField(REG_RXBYTES, 6, 0);
@@ -270,7 +340,7 @@ uint8_t Radio::getRxBytes(uint8_t len) {
   } while (bytes < len);
   return bytes;
 };
-uint8_t Radio::getTxBytes(uint8_t len) {
+uint8_t CC1101::getTxBytes(uint8_t len) {
   uint8_t bytes;
   do {
     bytes = readRegField(REG_TXBYTES, 6, 0);
@@ -279,7 +349,7 @@ uint8_t Radio::getTxBytes(uint8_t len) {
   } while (bytes < len);
   return bytes;
 };
-bool Radio::getFreqBand(double freq, const double freqTable[][2]) {
+bool CC1101::getFreqBand(double freq, const double freqTable[][2]) {
   for(int i = 0; i < 4; i++) {
     if(freq >= freqTable[i][0] && freq <= freqTable[i][1]) {
       freqBand = (FreqBand)i;
@@ -288,7 +358,7 @@ bool Radio::getFreqBand(double freq, const double freqTable[][2]) {
   }
   return false;
 };
-uint8_t Radio::getPreambleIdx(uint8_t len) {
+uint8_t CC1101::getPreambleIdx(uint8_t len) {
   switch (len) {
     case 16:
       return 0;
@@ -319,14 +389,14 @@ uint8_t Radio::getPreambleIdx(uint8_t len) {
   }
 };
 
-void Radio::waitForIdleState() {
-  while (getState() != STATE_IDLE){
+void CC1101::waitForState(State state) {
+  while (getState() != state){
     delayMicroseconds(50);
     yield();
   };
 };
 
-void Radio::readRxFifo(uint8_t *buff) {
+void CC1101::readRxFifo(uint8_t *buff) {
   if(isVariablePktLen) {
     pktLen = readReg(REG_FIFO);
   }
@@ -339,7 +409,7 @@ void Radio::readRxFifo(uint8_t *buff) {
     // if(!(r >> 7) & 1) return false; // CRC Mismatch
   }
 };
-void Radio::writeTxFifo(uint8_t *buff) {
+void CC1101::writeTxFifo(uint8_t *buff) {
   if(isVariablePktLen) {
     pktLen = sizeof(buff);
     writeReg(REG_FIFO, pktLen);
@@ -350,7 +420,7 @@ void Radio::writeTxFifo(uint8_t *buff) {
   writeRegBurst(REG_FIFO, buff, pktLen);
 };
 
-byte Radio::readReg(byte addr) {
+byte CC1101::readReg(byte addr) {
   start();
   spi.transfer(0x80 | (addr & 0b111111));
   // spi.transfer(addr | READ);
@@ -359,7 +429,7 @@ byte Radio::readReg(byte addr) {
 
   return data;
 };
-byte Radio::readStatusReg(byte addr){
+byte CC1101::readStatusReg(byte addr){
   start();
   // byte header = 0x80 | (addr & 0b111111);
   // header |= 0x40;
@@ -370,10 +440,10 @@ byte Radio::readStatusReg(byte addr){
 
   return data;
 };
-byte Radio::readRegField(byte addr, byte hi, byte lo){
+byte CC1101::readRegField(byte addr, byte hi, byte lo){
   return readStatusReg((addr) >> lo) & ((1 << (hi - lo + 1)) -1);
 };
-void Radio::readRegBurst(byte addr, uint8_t *buff, size_t size){
+void CC1101::readRegBurst(byte addr, uint8_t *buff, size_t size){
   start();
   spi.transfer(0x80 | 0x40 | (addr & 0b111111));
   // spi.transfer(addr | READ_BURST);
@@ -383,14 +453,14 @@ void Radio::readRegBurst(byte addr, uint8_t *buff, size_t size){
   stop();
 };
 
-void Radio::writeReg(byte addr, byte val){
+void CC1101::writeReg(byte addr, byte val){
   start();
     spi.transfer(0x00 | (addr & 0b111111));
     // spi.transfer(addr);
     spi.transfer(val);
   stop();
 };
-void Radio::writeStatusReg(byte addr){
+void CC1101::writeStatusReg(byte addr){
   start();
   // state =(spi.transfer(0x00 | (addr & 0b111111)) >> 4) & 0b00111;
   state =(spi.transfer(addr) >> 4) & 0b00111;
@@ -398,11 +468,11 @@ void Radio::writeStatusReg(byte addr){
   // spi.transfer(addr);
   stop();
 };
-void Radio::writeRegField(byte addr, byte val, byte hi, byte lo){
+void CC1101::writeRegField(byte addr, byte val, byte hi, byte lo){
   uint8_t mask = ((1 << (hi - lo + 1)) -1) << lo;
   writeReg(addr, (readReg(addr) & ~mask) | ((val <<= lo) & mask));
 };
-void Radio::writeRegBurst(byte addr, uint8_t *buff, size_t size){
+void CC1101::writeRegBurst(byte addr, uint8_t *buff, size_t size){
   start();
     spi.transfer(0x00 | 0x40 | (addr & 0b111111));
     // spi.transfer(addr | WRITE_BURST);
