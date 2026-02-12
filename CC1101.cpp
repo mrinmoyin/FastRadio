@@ -28,7 +28,15 @@ bool Radio::begin() {
   return true;
 }
 
- bool Radio::read(uint8_t *buff){
+#if isTwoWay
+bool Radio::readWrite(uint8_t *rxBuff, uint8_t *TxBuff) {
+  return true;
+};
+bool Radio::writeRead(uint8_t *TxBuff, uint8_t *rxBuff) {
+  return true;
+};
+#else
+bool Radio::read(uint8_t *buff){
   setIdleState();
   flushRxBuff();
   setRxState();
@@ -38,17 +46,8 @@ bool Radio::begin() {
   Serial.print("bytesInRXFifo before: ");
   Serial.println(rxBytes);
 
-  if(isVariablePktLen) {
-    pktLen = readReg(REG_FIFO);
-  }
-  readRegBurst(REG_FIFO, buff, pktLen);
-  if(isAppendStatus) {
-    uint8_t r = readReg(REG_FIFO);
-    if(r >= 128) rssi = ((rssi - 256) / 2) - RSSI_OFFSET;
-    else rssi = (rssi / 2) - RSSI_OFFSET;
-    lqi = readReg(REG_FIFO) & 0x7f;
-    if(!(r >> 7) & 1) return false; // CRC Mismatch
-  }
+  readRxFifo(buff);
+
   Serial.print("bytesInTXFifo after: ");
   Serial.println(readRegField(REG_RXBYTES, 6, 0));
 
@@ -63,14 +62,7 @@ bool Radio::write(uint8_t *buff){
   setIdleState();
   flushTxBuff();
 
-  if(isVariablePktLen) {
-    pktLen = sizeof(buff);
-    writeReg(REG_FIFO, pktLen);
-  }
-  if(addr > 0) {
-    writeReg(REG_FIFO, addr);
-  }
-  writeRegBurst(REG_FIFO, buff, pktLen);
+  writeTxFifo(buff);
 
   setTxState();
 
@@ -83,6 +75,7 @@ bool Radio::write(uint8_t *buff){
 
   return true;
 };
+#endif
 
 bool Radio::getChipInfo() {
   partnum = readStatusReg(REG_PARTNUM);
@@ -232,6 +225,16 @@ void Radio::setIdleState() {
     yield();
   }
 };
+void Radio::setTwoWay(bool isTwoWay) {
+  if(isTwoWay) {
+    writeRegField(REG_MDMCFG1, 2, 3, 2);
+    writeRegField(REG_MDMCFG1, 3, 1, 0);
+  } else {
+    writeRegField(REG_MDMCFG1, 0, 3, 2);
+    writeRegField(REG_MDMCFG1, 0, 1, 0);
+  }
+};
+
 byte Radio::getState() {
   writeStatusReg(REG_NOP);
   return state;
@@ -299,6 +302,30 @@ void Radio::waitForIdleState() {
     delayMicroseconds(50);
     yield();
   };
+};
+
+void Radio::readRxFifo(uint8_t *buff) {
+  if(isVariablePktLen) {
+    pktLen = readReg(REG_FIFO);
+  }
+  readRegBurst(REG_FIFO, buff, pktLen);
+  if(isAppendStatus) {
+    uint8_t r = readReg(REG_FIFO);
+    if(r >= 128) rssi = ((rssi - 256) / 2) - RSSI_OFFSET;
+    else rssi = (rssi / 2) - RSSI_OFFSET;
+    lqi = readReg(REG_FIFO) & 0x7f;
+    // if(!(r >> 7) & 1) return false; // CRC Mismatch
+  }
+};
+void Radio::writeTxFifo(uint8_t *buff) {
+  if(isVariablePktLen) {
+    pktLen = sizeof(buff);
+    writeReg(REG_FIFO, pktLen);
+  }
+  // if(addr > 0) {
+  //   writeReg(REG_FIFO, addr);
+  // }
+  writeRegBurst(REG_FIFO, buff, pktLen);
 };
 
 byte Radio::readReg(byte addr) {

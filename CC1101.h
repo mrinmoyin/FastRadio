@@ -166,14 +166,21 @@ class Radio {
       isManchester(false),
       isAppendStatus(true),
       isDataWhitening(false),
-      isVariablePktLen(false) {};
+      isVariablePktLen(false),
+      isTwoWay(false) {};
 
   int8_t partnum = -1, version = -1;
   uint8_t rssi, lqi;
 
   bool begin();
+
+  #if isTwoWay
+  bool readWrite(uint8_t *rxBuff, uint8_t *txBuff);
+  bool writeRead(uint8_t *txBuff, uint8_t *rxBuff);
+  #else 
   bool read(uint8_t *buff);
   bool write(uint8_t *buff);
+  #endif
 
   private: 
     uint8_t sck, miso, mosi, ss;
@@ -195,7 +202,8 @@ class Radio {
          isManchester,
          isAppendStatus,
          isDataWhitening,
-         isVariablePktLen;
+         isVariablePktLen,
+         isTwoWay;
     int8_t pwrIdx = -1, preambleIdx = -1;
 
     bool getChipInfo();
@@ -222,6 +230,7 @@ class Radio {
     void setRxState();
     void setTxState();
     void setIdleState();
+    void setTwoWay(bool isTwoWay);
 
     byte getState();
     uint8_t getRxBytes(uint8_t len = 1);
@@ -230,6 +239,9 @@ class Radio {
     uint8_t getPreambleIdx(uint8_t len);
 
     void waitForIdleState();
+
+    void readRxFifo(uint8_t *buff);
+    void writeTxFifo(uint8_t *buff);
 
     byte readReg(byte addr);
     byte readStatusReg(byte addr);
