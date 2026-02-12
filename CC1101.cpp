@@ -1,6 +1,6 @@
 #include "CC1101.h"
 
-bool CC1101::begin() {
+bool CC1101::init() {
   reset();
   delayMicroseconds(50);
   yield();
@@ -33,15 +33,9 @@ bool CC1101::read(uint8_t *buff){
   flushRxBuff();
   setRxState();
 
-  uint8_t rxBytes = getRxBytes(pktLen);
-
-  Serial.print("bytesInRXFifo before: ");
-  Serial.println(rxBytes);
+  waitForRxBytes(pktLen);
 
   readRxFifo(buff);
-
-  Serial.print("bytesInTXFifo after: ");
-  Serial.println(readRegField(REG_RXBYTES, 6, 0));
 
   waitForState();
 
@@ -55,12 +49,10 @@ bool CC1101::write(uint8_t *buff){
   flushTxBuff();
 
   setTxState();
+   
   writeTxFifo(buff);
 
   waitForState();
-
-  Serial.print("bytesInTXFifo after: ");
-  Serial.println(readRegField(REG_TXBYTES, 6, 0));
 
   flushTxBuff();
 
@@ -70,47 +62,56 @@ void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
   setIdleState();
   flushTxBuff();
   flushRxBuff();
-  setTwoWay(true);
+  setTwoWay();
   setTxState();
+
   while(true) {
-      Serial.print("linkState: ");
-      Serial.println(getState());
-      Serial.print("bytesInTXFifo before: ");
-      Serial.println(readRegField(REG_TXBYTES, 6, 0));
+    Serial.print("linkState: ");
+    Serial.println(getState());
+    Serial.print("bytesInTXFifo before: ");
+    Serial.println(readRegField(REG_TXBYTES, 6, 0));
 
-      writeTxFifo(txBuff);
-      Serial.print("Sent: [");
-      for (int i = 0; i < sizeof(txBuff); i++) {
-        if (i != 0) Serial.print(", ");
-        Serial.print(txBuff[i]);
-      }
-      Serial.print("] Length: ");
-      Serial.println(sizeof(txBuff));
+    flushTxBuff();
 
-      Serial.print("writeState: ");
-      Serial.println(getState());
-      waitForState(STATE_RX);
-      Serial.print("bytesInTXFifo after: ");
-      Serial.println(readRegField(REG_TXBYTES, 6, 0));
+    writeTxFifo(txBuff);
+    Serial.print("Sent: [");
+    for (int i = 0; i < sizeof(txBuff); i++) {
+    if (i != 0) Serial.print(", ");
+      Serial.print(txBuff[i]);
+    }
+    Serial.print("] Length: ");
+    Serial.println(sizeof(txBuff));
 
-      getRxBytes(pktLen);
-      Serial.print("getState: ");
-      Serial.println(getState());
+    Serial.print("writeState: ");
+    Serial.println(getState());
+    waitForState(STATE_RX);
+    Serial.print("bytesInTXFifo after: ");
+    Serial.println(readRegField(REG_TXBYTES, 6, 0));
 
-      readRxFifo(rxBuff);
-      Serial.print("readState: ");
-      Serial.println(getState());
-      Serial.print("Recieved: [");
-      for (int i = 0; i < sizeof(rxBuff); i++) {
-        if (i != 0) Serial.print(", ");
-        Serial.print(rxBuff[i]);
-      }
-      Serial.print("] Length: ");
-      Serial.print(sizeof(rxBuff));
-      Serial.print(" RSSI: ");
-      Serial.print(rssi);
-      Serial.print(" LQI: ");
-      Serial.println(lqi);
+    flushRxBuff();
+
+    waitForRxBytes(pktLen);
+    Serial.print("getState: ");
+    Serial.println(getState());
+    Serial.print("bytesInRXFifo before: ");
+    Serial.println(readRegField(REG_RXBYTES, 6, 0));
+
+    readRxFifo(rxBuff);
+    Serial.print("readState: ");
+    Serial.println(getState());
+    Serial.print("Recieved: [");
+    for (int i = 0; i < sizeof(rxBuff); i++) {
+      if (i != 0) Serial.print(", ");
+      Serial.print(rxBuff[i]);
+    }
+    Serial.print("] Length: ");
+    Serial.print(sizeof(rxBuff));
+    Serial.print(" RSSI: ");
+    Serial.print(rssi);
+    Serial.print(" LQI: ");
+    Serial.println(lqi);
+    Serial.print("bytesInRXFifo after: ");
+    Serial.println(readRegField(REG_RXBYTES, 6, 0));
   }
 };
 
@@ -272,24 +273,6 @@ byte CC1101::getState() {
   writeStatusReg(REG_NOP);
   return state;
 };
-uint8_t CC1101::getRxBytes(uint8_t len) {
-  uint8_t bytes;
-  do {
-    bytes = readRegField(REG_RXBYTES, 6, 0);
-    delayMicroseconds(50);
-    yield();
-  } while (bytes < len);
-  return bytes;
-};
-uint8_t CC1101::getTxBytes(uint8_t len) {
-  uint8_t bytes;
-  do {
-    bytes = readRegField(REG_TXBYTES, 6, 0);
-    delayMicroseconds(50);
-    yield();
-  } while (bytes < len);
-  return bytes;
-};
 bool CC1101::getFreqBand(double freq, const double freqTable[][2]) {
   for(int i = 0; i < 4; i++) {
     if(freq >= freqTable[i][0] && freq <= freqTable[i][1]) {
@@ -335,6 +318,22 @@ void CC1101::waitForState(State state) {
     delayMicroseconds(50);
     yield();
   };
+};
+void CC1101::waitForRxBytes(uint8_t len) {
+  uint8_t bytes;
+  do {
+    bytes = readRegField(REG_RXBYTES, 6, 0);
+    delayMicroseconds(50);
+    yield();
+  } while (bytes < len);
+};
+void CC1101::waitForTxBytes(uint8_t len) {
+  uint8_t bytes;
+  do {
+    bytes = readRegField(REG_TXBYTES, 6, 0);
+    delayMicroseconds(50);
+    yield();
+  } while (bytes < len);
 };
 
 void CC1101::readRxFifo(uint8_t *buff) {
