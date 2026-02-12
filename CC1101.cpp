@@ -31,8 +31,6 @@ bool Radio::begin() {
  bool Radio::read(uint8_t *buff){
   setIdleState();
   flushRxBuff();
-  delayMicroseconds(50);
-  yield();
   setRxState();
 
   uint8_t rxBytes = getRxBytes(4);
@@ -53,11 +51,8 @@ bool Radio::begin() {
   }
   Serial.print("bytesInTXFifo after: ");
   Serial.println(readRegField(REG_RXBYTES, 6, 0));
-  
-  while (getState() != STATE_IDLE){
-    delayMicroseconds(50);
-    yield();
-  };
+
+  waitForIdleState();
 
   // flushRxBuff();
   // setRxState();
@@ -67,8 +62,6 @@ bool Radio::begin() {
 bool Radio::write(uint8_t *buff){
   setIdleState();
   flushTxBuff();
-  delayMicroseconds(50);
-  yield();
 
   if(isVariablePktLen) {
     pktLen = sizeof(buff);
@@ -81,14 +74,8 @@ bool Radio::write(uint8_t *buff){
 
   setTxState();
 
-  while (getState() != STATE_IDLE){
-    delayMicroseconds(50);
-    yield();
-  };
+  waitForIdleState();
 
-  // uint8_t txBytes = getTxBytes(1);
-  // Serial.print("bytesInTXFifo before: ");
-  // Serial.println(txBytes);
   Serial.print("bytesInTXFifo after: ");
   Serial.println(readRegField(REG_TXBYTES, 6, 0));
 
@@ -134,10 +121,14 @@ void Radio::reset() {
 void Radio::flushRxBuff(){
   if(getState() != (STATE_IDLE || STATE_RXFIFO_OVERFLOW)) return;
   writeStatusReg(REG_FRX);
+  delayMicroseconds(50);
+  yield();
 };
 void Radio::flushTxBuff(){
   if(getState() != (STATE_IDLE || STATE_TXFIFO_UNDERFLOW)) return;
   writeStatusReg(REG_FTX);
+  delayMicroseconds(50);
+  yield();
 };
 
 void Radio::setCRC(bool en) {
@@ -301,6 +292,13 @@ uint8_t Radio::getPreambleIdx(uint8_t len) {
     default:
       return 0;;
   }
+};
+
+void Radio::waitForIdleState() {
+  while (getState() != STATE_IDLE){
+    delayMicroseconds(50);
+    yield();
+  };
 };
 
 byte Radio::readReg(byte addr) {

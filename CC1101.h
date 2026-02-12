@@ -229,6 +229,8 @@ class Radio {
     bool getFreqBand(double freq, const double freqTable[][2]);
     uint8_t getPreambleIdx(uint8_t len);
 
+    void waitForIdleState();
+
     byte readReg(byte addr);
     byte readStatusReg(byte addr);
     byte readRegField(byte addr, byte hi, byte lo);
