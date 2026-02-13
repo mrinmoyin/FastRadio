@@ -59,59 +59,42 @@ bool CC1101::write(uint8_t *buff){
   return true;
 };
 void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
-  setIdleState();
-  flushTxBuff();
-  flushRxBuff();
-  setTwoWay();
-  setTxState();
+  // setTwoWay();
 
   while(true) {
-    Serial.print("linkState: ");
-    Serial.println(getState());
-    Serial.print("bytesInTXFifo before: ");
-    Serial.println(readRegField(REG_TXBYTES, 6, 0));
-
+    Serial.println("link");
+    setIdleState();
     flushTxBuff();
+    setTxState();
 
     writeTxFifo(txBuff);
-    Serial.print("Sent: [");
-    for (int i = 0; i < sizeof(txBuff); i++) {
-    if (i != 0) Serial.print(", ");
-      Serial.print(txBuff[i]);
-    }
-    Serial.print("] Length: ");
-    Serial.println(sizeof(txBuff));
-
-    Serial.print("writeState: ");
-    Serial.println(getState());
-    waitForState(STATE_RX);
-    Serial.print("bytesInTXFifo after: ");
-    Serial.println(readRegField(REG_TXBYTES, 6, 0));
+    waitForState();
+    Serial.println("Sent packet.");
 
     flushRxBuff();
+    setRxState();
 
-    waitForRxBytes(pktLen);
-    Serial.print("getState: ");
-    Serial.println(getState());
-    Serial.print("bytesInRXFifo before: ");
-    Serial.println(readRegField(REG_RXBYTES, 6, 0));
+    uint32_t lastMillis = millis();
 
-    readRxFifo(rxBuff);
-    Serial.print("readState: ");
-    Serial.println(getState());
-    Serial.print("Recieved: [");
-    for (int i = 0; i < sizeof(rxBuff); i++) {
-      if (i != 0) Serial.print(", ");
-      Serial.print(rxBuff[i]);
+    // if(millis() - lastMillis > 5000) {
+    //   continue;
+    // }
+    while (millis() - lastMillis < 5000) {
+      // waitForRxBytes(pktLen);
+      if(readRegField(REG_RXBYTES, 6, 0) == 0) {
+        // delayMicroseconds(50);
+        // yield();
+        delay(500);
+        Serial.println("rxBytes is 0 ");
+        continue;
+      }
+      lastMillis = millis();
+
+      readRxFifo(rxBuff);
+      waitForState();
+      Serial.println("Received packet.");
     }
-    Serial.print("] Length: ");
-    Serial.print(sizeof(rxBuff));
-    Serial.print(" RSSI: ");
-    Serial.print(rssi);
-    Serial.print(" LQI: ");
-    Serial.println(lqi);
-    Serial.print("bytesInRXFifo after: ");
-    Serial.println(readRegField(REG_RXBYTES, 6, 0));
+    Serial.println("timeout");
   }
 };
 
