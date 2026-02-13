@@ -48,33 +48,36 @@ bool CC1101::write(uint8_t *buff){
   return true;
 };
 void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs) {
-  uint32_t lastMillis = millis();
-  setIdleState();
-  setTwoWay();
-  setTxState();
+  // setTwoWay();
+
   while(true) {
+    setIdleState();
     flushTxBuff();
+
+    setTxState();
     writeTxFifo(txBuff);
-    waitForState(STATE_RX);
+    waitForState();
     Serial.println("Sent packet.");
+
     flushRxBuff();
-    lastMillis = millis();
-    while (true) {
-      if (millis() - lastMillis > timeoutMs) {
-        setIdleState();
-        setTxState();
-        Serial.println("timeout");
-        break;
-      } else if (readRegField(REG_RXBYTES, 6, 0) == 0) {
-        // Serial.println("rxbytes == 0");
-        delay(50);
+    setRxState();
+    
+    uint32_t lastMillis = millis();
+    
+    while (millis() - lastMillis < timeoutMs) {
+      // waitForRxBytes(pktLen);
+      if(readRegField(REG_RXBYTES, 6, 0) == 0) {
+        Serial.println("rxbytes == 0");
+        delay(500);
         continue;
       }
-      Serial.println("rxbytes > 0");
+      lastMillis = millis();
+
       readRxFifo(rxBuff);
-      waitForState(STATE_TX);
+      waitForState();
       Serial.println("Received packet.");
     }
+    Serial.println("timeout");
   }
 };
 
