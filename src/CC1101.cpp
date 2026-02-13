@@ -60,16 +60,17 @@ void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs) {
     flushRxBuff();
     lastMillis = millis();
     while (true) {
-      if (millis() - lastMillis > timeoutMs) {
-        setIdleState();
-        setTxState();
-        Serial.println("timeout");
-        break;
-      } else if (readRegField(REG_RXBYTES, 6, 0) != 0) {
+      if (readRegField(REG_RXBYTES, 6, 0) != 0) {
         Serial.println("rxbytes > 0");
         readRxFifo(rxBuff);
         waitForState(STATE_TX);
         Serial.println("Received packet.");
+        break;
+      } else if (millis() - lastMillis > timeoutMs) {
+        setIdleState();
+        setTxState();
+        Serial.println("timeout");
+        break;
       } else {
         delay(100);
       }
