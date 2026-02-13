@@ -3,7 +3,6 @@
 bool CC1101::init() {
   reset();
   delayMicroseconds(50);
-  yield();
 
   if(!getChipInfo() || 
       !getFreqBand(freq, freqTable) ||
@@ -32,81 +31,50 @@ bool CC1101::read(uint8_t *buff){
   setIdleState();
   flushRxBuff();
   setRxState();
-
   waitForRxBytes(pktLen);
-
   readRxFifo(buff);
-
   waitForState();
-
   // flushRxBuff();
   // setRxState();
-
   return true;
 };
 bool CC1101::write(uint8_t *buff){
   setIdleState();
   flushTxBuff();
-
   setTxState();
-   
   writeTxFifo(buff);
-
   waitForState();
-
-  flushTxBuff();
-
+  // flushTxBuff();
   return true;
 };
-// void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
-//   static const uint16_t timeoutMs = 5000;
-//   // setTwoWay();
-//
-//   while(true) {
-//     Serial.println("link");
-//     setIdleState();
-//     flushTxBuff();
-//     setTxState();
-//
-//     writeTxFifo(txBuff);
-//     waitForState();
-//     Serial.println("Sent packet.");
-//
-//     flushRxBuff();
-//     setRxState();
-//
-//     uint32_t lastMillis = millis();
-//
-//     // if(millis() - lastMillis > 5000) {
-//     //   continue;
-//     // }
-//     while (millis() - lastMillis < timeoutMs) {
-//       // waitForRxBytes(pktLen);
-//       if(readRegField(REG_RXBYTES, 6, 0) == 0) {
-//         // delayMicroseconds(50);
-//         // yield();
-//         // delay(500);
-//         Serial.println("rxBytes is 0 ");
-//         continue;
-//       }
-//       lastMillis = millis();
-//
-//       readRxFifo(rxBuff);
-//       waitForState();
-//       Serial.println("Received packet.");
-//     }
-//     Serial.println("timeout");
-//   }
-// };
-void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
-  static const uint16_t timeoutMs = 5000;
-  // setTwoWay();
-
+void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs) {
+  uint32_t lastMillis = millis();
+  setIdleState();
+  setTwoWay();
+  setTxState();
   while(true) {
-    write(txBuff);
+    flushTxBuff();
+    writeTxFifo(txBuff);
+    waitForState(STATE_RX);
     Serial.println("Sent packet.");
-    read(rxBuff);
-    Serial.println("Received packet.");
+    flushRxBuff();
+    lastMillis = millis();
+    while (true) {
+      if (millis() - lastMillis > timeoutMs) {
+        setIdleState();
+        setTxState();
+        Serial.println("timeout");
+        break;
+      } else if (readRegField(REG_RXBYTES, 6, 0) == 0) {
+        // Serial.println("rxbytes == 0");
+        delay(50);
+        continue;
+      }
+      Serial.println("rxbytes > 0");
+      readRxFifo(rxBuff);
+      waitForState(STATE_TX);
+      Serial.println("Received packet.");
+    }
   }
 };
 
@@ -148,13 +116,11 @@ void CC1101::flushRxBuff(){
   if(getState() != (STATE_IDLE || STATE_RXFIFO_OVERFLOW)) return;
   writeStatusReg(REG_FRX);
   delayMicroseconds(50);
-  yield();
 };
 void CC1101::flushTxBuff(){
   if(getState() != (STATE_IDLE || STATE_TXFIFO_UNDERFLOW)) return;
   writeStatusReg(REG_FTX);
   delayMicroseconds(50);
-  yield();
 };
 
 void CC1101::setCRC(bool en) {
@@ -240,7 +206,6 @@ void CC1101::setRxState() {
     if (state == STATE_RXFIFO_OVERFLOW) flushRxBuff();
     else if (state != (STATE_CALIB || STATE_SETTLING)) writeStatusReg(REG_RX);
     delayMicroseconds(50);
-    yield();
   }
 };
 void CC1101::setTxState() {
@@ -248,14 +213,12 @@ void CC1101::setTxState() {
     if(state == STATE_TXFIFO_UNDERFLOW) flushTxBuff();
     else if (state != (STATE_CALIB || STATE_SETTLING)) writeStatusReg(REG_TX);
     delayMicroseconds(50);
-    yield();
   }
 };
 void CC1101::setIdleState() {
   while(getState() != STATE_IDLE) {
     writeStatusReg(REG_IDLE);
     delayMicroseconds(50);
-    yield();
   }
 };
 void CC1101::setTwoWay() {
@@ -311,7 +274,6 @@ uint8_t CC1101::getPreambleIdx(uint8_t len) {
 void CC1101::waitForState(State state) {
   while (getState() != state){
     delayMicroseconds(50);
-    yield();
   };
 };
 void CC1101::waitForRxBytes(uint8_t len) {
@@ -319,7 +281,6 @@ void CC1101::waitForRxBytes(uint8_t len) {
   do {
     bytes = readRegField(REG_RXBYTES, 6, 0);
     delayMicroseconds(50);
-    yield();
   } while (bytes < len);
 };
 void CC1101::waitForTxBytes(uint8_t len) {
@@ -327,7 +288,6 @@ void CC1101::waitForTxBytes(uint8_t len) {
   do {
     bytes = readRegField(REG_TXBYTES, 6, 0);
     delayMicroseconds(50);
-    yield();
   } while (bytes < len);
 };
 

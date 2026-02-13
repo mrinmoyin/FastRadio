@@ -140,16 +140,16 @@ static const uint8_t pwrTable[][8] = {
 class CC1101 {
   public:
     CC1101(
-        int8_t ss = SS,
         int8_t sck = SCK,
         int8_t miso = MISO,
         int8_t mosi = MOSI,
+        int8_t ss = SS,
         SPIClass &spi = SPI
         ):
-      ss(ss),
       sck(sck),
       miso(miso),
       mosi(mosi),
+      ss(ss),
       spi(spi),
       spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE),
       mod(MOD_2FSK),
@@ -176,7 +176,7 @@ class CC1101 {
 
   bool read(uint8_t *buff);
   bool write(uint8_t *buff);
-  void link(uint8_t *txBuff, uint8_t *rxBuff);
+  void link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs = 500);
 
   private: 
     uint8_t sck, miso, mosi, ss;
