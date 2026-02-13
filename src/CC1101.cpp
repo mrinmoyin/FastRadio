@@ -58,43 +58,55 @@ bool CC1101::write(uint8_t *buff){
 
   return true;
 };
+// void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
+//   static const uint16_t timeoutMs = 5000;
+//   // setTwoWay();
+//
+//   while(true) {
+//     Serial.println("link");
+//     setIdleState();
+//     flushTxBuff();
+//     setTxState();
+//
+//     writeTxFifo(txBuff);
+//     waitForState();
+//     Serial.println("Sent packet.");
+//
+//     flushRxBuff();
+//     setRxState();
+//
+//     uint32_t lastMillis = millis();
+//
+//     // if(millis() - lastMillis > 5000) {
+//     //   continue;
+//     // }
+//     while (millis() - lastMillis < timeoutMs) {
+//       // waitForRxBytes(pktLen);
+//       if(readRegField(REG_RXBYTES, 6, 0) == 0) {
+//         // delayMicroseconds(50);
+//         // yield();
+//         // delay(500);
+//         Serial.println("rxBytes is 0 ");
+//         continue;
+//       }
+//       lastMillis = millis();
+//
+//       readRxFifo(rxBuff);
+//       waitForState();
+//       Serial.println("Received packet.");
+//     }
+//     Serial.println("timeout");
+//   }
+// };
 void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff) {
+  static const uint16_t timeoutMs = 5000;
   // setTwoWay();
 
   while(true) {
-    Serial.println("link");
-    setIdleState();
-    flushTxBuff();
-    setTxState();
-
-    writeTxFifo(txBuff);
-    waitForState();
+    write(txBuff);
     Serial.println("Sent packet.");
-
-    flushRxBuff();
-    setRxState();
-
-    uint32_t lastMillis = millis();
-
-    // if(millis() - lastMillis > 5000) {
-    //   continue;
-    // }
-    while (millis() - lastMillis < 5000) {
-      // waitForRxBytes(pktLen);
-      if(readRegField(REG_RXBYTES, 6, 0) == 0) {
-        // delayMicroseconds(50);
-        // yield();
-        delay(500);
-        Serial.println("rxBytes is 0 ");
-        continue;
-      }
-      lastMillis = millis();
-
-      readRxFifo(rxBuff);
-      waitForState();
-      Serial.println("Received packet.");
-    }
-    Serial.println("timeout");
+    read(rxBuff);
+    Serial.println("Received packet.");
   }
 };
 
