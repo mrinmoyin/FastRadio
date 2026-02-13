@@ -65,15 +65,14 @@ void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs) {
         setTxState();
         Serial.println("timeout");
         break;
-      } else if (readRegField(REG_RXBYTES, 6, 0) == 0) {
-        // Serial.println("rxbytes == 0");
-        delay(50);
-        continue;
+      } else if (readRegField(REG_RXBYTES, 6, 0) != 0) {
+        Serial.println("rxbytes > 0");
+        readRxFifo(rxBuff);
+        waitForState(STATE_TX);
+        Serial.println("Received packet.");
+      } else {
+        delay(100);
       }
-      Serial.println("rxbytes > 0");
-      readRxFifo(rxBuff);
-      waitForState(STATE_TX);
-      Serial.println("Received packet.");
     }
   }
 };
