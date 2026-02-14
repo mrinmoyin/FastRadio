@@ -176,7 +176,8 @@ class CC1101 {
 
   bool read(uint8_t *buff);
   bool write(uint8_t *buff);
-  void link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs = 500);
+  bool link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs = 500);
+  void link2(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs = 500);
 
   private: 
     uint8_t sck, miso, mosi, ss;
