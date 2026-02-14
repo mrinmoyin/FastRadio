@@ -31,11 +31,9 @@ bool CC1101::read(uint8_t *buff){
   setIdleState();
   flushRxBuff();
   setRxState();
-  waitForRxBytes(pktLen);
+  waitForRxBytes();
   readRxFifo(buff);
   waitForState();
-  // flushRxBuff();
-  // setRxState();
   return true;
 };
 bool CC1101::write(uint8_t *buff){
@@ -44,24 +42,22 @@ bool CC1101::write(uint8_t *buff){
   setTxState();
   writeTxFifo(buff);
   waitForState();
-  // flushTxBuff();
   return true;
 };
 bool CC1101::link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs) {
-  uint32_t lastMillis;
+  uint32_t lastMillis = millis();
   setIdleState();
-  setTxState();
   flushTxBuff();
+  setTxState();
   writeTxFifo(txBuff);
   waitForState();
   flushRxBuff();
   setRxState();
-  lastMillis = millis();
-  while (readRegField(REG_RXBYTES, 6, 0) < pktLen) {
+  while (!enoughRxBytes()) {
     if (millis() - lastMillis > timeoutMs) {
       return false; // timeout
     }
-    delay(500);
+    delay(1); // avoid watchdog
   }
   readRxFifo(rxBuff);
   waitForState();
@@ -299,19 +295,12 @@ void CC1101::waitForState(State state) {
     delayMicroseconds(50);
   };
 };
-void CC1101::waitForRxBytes(uint8_t len) {
-  uint8_t bytes;
-  do {
-    bytes = readRegField(REG_RXBYTES, 6, 0);
-    delayMicroseconds(50);
-  } while (bytes < len);
+void CC1101::waitForRxBytes() {
+  while (!enoughRxBytes()) delayMicroseconds(50);
 };
-void CC1101::waitForTxBytes(uint8_t len) {
-  uint8_t bytes;
-  do {
-    bytes = readRegField(REG_TXBYTES, 6, 0);
-    delayMicroseconds(50);
-  } while (bytes < len);
+bool CC1101::enoughRxBytes() {
+  if (readRegField(REG_RXBYTES, 6, 0) < (pktLen + (isVariablePktLen ? 1 : 0) + (addr > 0 ? 1 : 0))) return false;
+  return true;
 };
 
 void CC1101::readRxFifo(uint8_t *buff) {

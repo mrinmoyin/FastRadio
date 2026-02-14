@@ -233,8 +233,8 @@ class CC1101 {
     uint8_t getPreambleIdx(uint8_t len);
 
     void waitForState(State state = STATE_IDLE);
-    void waitForRxBytes(uint8_t len = 1);
-    void waitForTxBytes(uint8_t len = 1);
+    void waitForRxBytes();
+    bool enoughRxBytes();
 
     void readRxFifo(uint8_t *buff);
     void writeTxFifo(uint8_t *buff);
