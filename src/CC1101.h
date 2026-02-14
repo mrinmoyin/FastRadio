@@ -1,6 +1,7 @@
-// #pragma once
-#ifndef CC1101
-#define CC1101
+#pragma once
+
+#ifndef CC1101_H
+#define CC1101_H
 
 #include <Arduino.h>
 #include <SPI.h>
@@ -136,19 +137,19 @@ static const uint8_t pwrTable[][8] = {
   [FREQ_BAND_915] = { 0x03, 0x0e, 0x1e, 0x27, 0x8e, 0xcd, 0xc7, 0xc0 },
 };
 
-class Radio {
+class CC1101 {
   public:
-    Radio(
-        int8_t ss = SS,
+    CC1101(
         int8_t sck = SCK,
         int8_t miso = MISO,
         int8_t mosi = MOSI,
+        int8_t ss = SS,
         SPIClass &spi = SPI
         ):
-      ss(ss),
       sck(sck),
       miso(miso),
       mosi(mosi),
+      ss(ss),
       spi(spi),
       spiSettings(SPI_MAX_FREQ, SPI_DATA_ORDER, SPI_DATA_MODE),
       mod(MOD_2FSK),
@@ -171,9 +172,11 @@ class Radio {
   int8_t partnum = -1, version = -1;
   uint8_t rssi, lqi;
 
-  bool begin();
+  bool init();
+
   bool read(uint8_t *buff);
   bool write(uint8_t *buff);
+  void link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs = 500);
 
   private: 
     uint8_t sck, miso, mosi, ss;
@@ -222,12 +225,18 @@ class Radio {
     void setRxState();
     void setTxState();
     void setIdleState();
+    void setTwoWay();
 
     byte getState();
-    uint8_t getRxBytes(uint8_t len = 1);
-    uint8_t getTxBytes(uint8_t len = 1);
     bool getFreqBand(double freq, const double freqTable[][2]);
     uint8_t getPreambleIdx(uint8_t len);
+
+    void waitForState(State state = STATE_IDLE);
+    void waitForRxBytes(uint8_t len = 1);
+    void waitForTxBytes(uint8_t len = 1);
+
+    void readRxFifo(uint8_t *buff);
+    void writeTxFifo(uint8_t *buff);
 
     byte readReg(byte addr);
     byte readStatusReg(byte addr);
