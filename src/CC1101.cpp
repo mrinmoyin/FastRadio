@@ -47,27 +47,54 @@ bool CC1101::write(uint8_t *buff){
   // flushTxBuff();
   return true;
 };
-void CC1101::link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs) {
+bool CC1101::link(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs) {
+  uint32_t lastMillis;
+  setIdleState();
+  setTxState();
+  flushTxBuff();
+  writeTxFifo(txBuff);
+  waitForState();
+  flushRxBuff();
+  setRxState();
+  lastMillis = millis();
+  while (readRegField(REG_RXBYTES, 6, 0) < pktLen) {
+    if (millis() - lastMillis > timeoutMs) {
+      return false; // timeout
+    }
+    delay(500);
+  }
+  readRxFifo(rxBuff);
+  waitForState();
+  return true;
+};
+void CC1101::link2(uint8_t *txBuff, uint8_t *rxBuff, const uint16_t timeoutMs) {
+  uint32_t lastMillis;
+  setIdleState();
+  setTwoWay();
+  setTxState();
   while(true) {
-    setIdleState();
-    setTxState();
     flushTxBuff();
     writeTxFifo(txBuff);
-    waitForState();
+    waitForState(STATE_RX);
     Serial.println("Sent packet.");
     flushRxBuff();
-    setRxState();
-    uint32_t lastMillis = millis();
-    while (true) {
+    lastMillis = millis();
+    while (true) { /* state goes to tx even when fifo is empty */
+      Serial.print("state: ");
+      Serial.println(getState());
       if (readRegField(REG_RXBYTES, 6, 0) != 0) {
         Serial.println("rxbytes > 0");
         readRxFifo(rxBuff);
-        waitForState();
+        waitForState(STATE_TX);
         Serial.println("Received packet.");
         break;
-      } else if (millis() - lastMillis > timeoutMs) {
-        Serial.println("timeout");
-        break;
+      // } else if (millis() - lastMillis > timeoutMs) {
+      //   setIdleState();
+      //   setTxState();
+      //   Serial.println("timeout");
+      //   break;
+      // } else {
+        delay(500);
       }
     }
   }
@@ -119,7 +146,8 @@ void CC1101::flushTxBuff(){
 };
 
 void CC1101::setCRC(bool en) {
-  writeRegField(REG_PKTCTRL0, (byte)en, 2, 2);
+  writeRegField(REG_PKTCTRL0, (byte)en, 2, 2); /* CRC_EN */
+  writeRegField(REG_PKTCTRL1, (byte)en, 3, 3); /* Autoflush */
 };
 void CC1101::setFEC(bool en) {
   if(isVariablePktLen) return;
@@ -218,8 +246,8 @@ void CC1101::setIdleState() {
 };
 void CC1101::setTwoWay() {
     writeRegField(REG_MCSM1, 0, 5, 4); /* Disabl CCA */
-    writeRegField(REG_MCSM1, 2, 3, 2); /* Set RXOFF to TX */
     writeRegField(REG_MCSM1, 3, 1, 0); /* Set TXOFF to RX */
+    writeRegField(REG_MCSM1, 2, 3, 2); /* Set RXOFF to TX */
 };
 
 byte CC1101::getState() {
