@@ -4,9 +4,10 @@ bool NEO6M::update() {
   std::string gngga[14];
   readLine("$GNGGA,", gngga, 14);
   // readLine("$GNRMC,", gngga, 14);
-  time = gngga[0].c_str();
-  lat = gngga[1].c_str();
-  lon = gngga[3].c_str();
+  time = atoi(gngga[0].c_str());
+  lat = atoi(gngga[1].c_str());
+  lon = atoi(gngga[3].c_str());
+  sats = atoi(gngga[6].c_str());
   // Serial1.print("Time: ");
   // Serial1.print(gngga[0].c_str());
 

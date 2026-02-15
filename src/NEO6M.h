@@ -11,7 +11,10 @@ class NEO6M {
   public:
     NEO6M(UART &ss = Serial): ss(ss) {};
 
-    String time, lat, lon;
+    // long double time, lat, lon;
+    double time, lat, lon;
+    double hour, min, sec;
+    uint8_t sats;
 
     bool update();
 
